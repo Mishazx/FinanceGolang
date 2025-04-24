@@ -4,6 +4,7 @@ import json
 import logging
 import sys
 
+from myrandom import generation_name_account
 from utils import Storage
 
 LOGIN_USER = "12312312332233"
@@ -43,12 +44,6 @@ class BaseAPITest(unittest.TestCase):
 class TestAuthAPIRequests(BaseAPITest):
     def setUp(self):
         super().setUp()
-
-    def send_request(self, method, path, body=None, headers=None):
-        self.conn.request(method, path, body, headers or {})
-        response = self.conn.getresponse()
-        data = response.read()
-        return response.status, data
 
     def test_post_register_request(self):
         payload = json.dumps({
@@ -97,12 +92,6 @@ class TestAccountAPIRequests(BaseAPITest):
     def setUp(self):
         super().setUp()
 
-    def send_request(self, method, path, body=None, headers=None):
-        self.conn.request(method, path, body, headers or {})
-        response = self.conn.getresponse()
-        data = response.read()
-        return response.status, data
-
 
     def test_post_create_account_request(self):
         payload = json.dumps({
@@ -123,7 +112,10 @@ class TestAccountAPIRequests(BaseAPITest):
 
     def test_get_accounts_request(self):
         try:
-            status, data = self.send_request("GET", "/api/accounts", headers=self.headers)
+            payload = json.dumps({
+                "name": generation_name_account(),
+            })
+            status, data = self.send_request("GET", "/api/accounts", headers=self.headers, body=payload)
             response_data = json.loads(data)
 
             self.assertEqual(status, 200, f"Ожидаемый статус: 200, полученный: {status}")
@@ -135,16 +127,40 @@ class TestAccountAPIRequests(BaseAPITest):
             logger.error(f"Тест получения списка счетов не прошел: {e}")
             raise
 
+class TestCardAPIRequests(BaseAPITest):
+    def setUp(self):
+        super().setUp()
 
+    def test_post_card_request(self):
+        payload = json.dumps({
+            "name": "Test Card",
+        })
+        try:
+            status, data = self.send_request("POST", "/api/cards", body=payload, headers=self.headers)
+            response_data = json.loads(data)
+
+            self.assertEqual(status, 201, f"Ожидаемый статус: 201, полученный: {status}")
+            self.assertEqual(response_data["status"], "success", f"Ожидаемый статус ответа: 'success', полученный: {response_data.get('status')}")
+            logger.info("Тест создания карты завершен успешно")
+
+        except AssertionError as e:
+            logger.error(f"Тест создания карты не прошел: {e}")
+            raise
     
 
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
+    # регистрация пользователя и авторизация
     suite.addTest(TestAuthAPIRequests("test_post_register_request"))
     suite.addTest(TestAuthAPIRequests("test_post_login_request"))
+    # регистрация двух счетов и вывод списка счетов
+    suite.addTest(TestAccountAPIRequests("test_post_create_account_request")) 
     suite.addTest(TestAccountAPIRequests("test_post_create_account_request"))
     suite.addTest(TestAccountAPIRequests("test_get_accounts_request"))
+
+    # регистрация карты и вывод списка карт
+
 
     # runner = QuietTestRunner()
     # runner.run(suite)

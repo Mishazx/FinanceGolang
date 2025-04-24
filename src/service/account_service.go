@@ -9,6 +9,7 @@ import (
 type AccountService interface {
 	CreateAccount(account *model.Account) error
 	GetAccountByID(id uint) (*model.Account, error)
+	GetAccountByUserID(id uint) ([]model.Account, error)
 	GetAllAccounts() ([]model.Account, error)
 }
 
@@ -32,13 +33,30 @@ func (s *accountService) GetAccountByID(id uint) (*model.Account, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get account by ID: %v", err)
 	}
+	if account == nil {
+		return nil, fmt.Errorf("account not found with ID: %d", id)
+	}
 	return account, nil
+}
+
+func (s *accountService) GetAccountByUserID(userID uint) ([]model.Account, error) {
+	accounts, err := s.accountRepo.GetAccountByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get account by user ID: %v", err)
+	}
+	if len(accounts) == 0 {
+		return nil, fmt.Errorf("no accounts found for user ID: %d", userID)
+	}
+	return accounts, nil
 }
 
 func (s *accountService) GetAllAccounts() ([]model.Account, error) {
 	accounts, err := s.accountRepo.GetAllAccounts()
 	if err != nil {
 		return nil, fmt.Errorf("could not get all accounts: %v", err)
+	}
+	if len(accounts) == 0 {
+		return nil, fmt.Errorf("no accounts found")
 	}
 	return accounts, nil
 }

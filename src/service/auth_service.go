@@ -1,6 +1,7 @@
 package service
 
 import (
+	"FinanceGolang/src/dto"
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
 	"FinanceGolang/src/security"
@@ -14,6 +15,8 @@ type AuthService interface {
 	Register(user *model.User) error
 	Login(user *model.User) (string, error)
 	AuthStatus(token string) (bool, error)
+	GetUserByUsername(username string) (*model.User, error)
+	GetUserByUsernameWithoutPassword(username string) (*dto.UserResponse, error)
 }
 
 type authService struct {
@@ -53,14 +56,30 @@ func (s *authService) Login(user *model.User) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	// Сравниваем хэши паролей
 	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password)); err != nil {
 		return "", err
 	}
-
 	// Генерируем токен
 	return security.GenerateToken(foundUser.Username)
+}
+
+func (s *authService) GetUserByUsername(username string) (*model.User, error) {
+	user, err := s.userRepo.FindUserByUsername(username)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *authService) GetUserByUsernameWithoutPassword(username string) (*dto.UserResponse, error) {
+	userResponse, err := s.userRepo.FindUserByUsernameWithoutPassword(username)
+	if err != nil {
+		return nil, err
+	}
+
+	return userResponse, nil
 }
 
 func (s *authService) AuthStatus(token string) (bool, error) {

@@ -11,6 +11,7 @@ type Card struct {
 	Number     string    `json:"number"`      // Номер карты (зашифрован).
 	ExpiryDate string    `json:"expiry_date"` // Срок действия карты (зашифрован).
 	CVV        string    `json:"-"`           // CVV код (хеширован).
+	HMAC       string    `json:"hmac"`
 	CreatedAt  time.Time `json:"created_at"`
 
 	Account Account `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"account"`

@@ -1,10 +1,9 @@
 package controller
 
 import (
-	"net/http"
-
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/service"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -57,9 +56,17 @@ func (h *AuthController) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
-func (h *AuthController) Protected(c *gin.Context) {
+func (h *AuthController) MyUser(c *gin.Context) {
 	username := c.MustGet("username").(string)
-	c.JSON(http.StatusOK, gin.H{"message": "Hello " + username})
+
+	// Получите информацию о пользователе из базы данных или другого источника
+	user, err := h.authService.GetUserByUsernameWithoutPassword(username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to retrieve user information"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Hello " + username, "user": user})
 }
 
 func (h *AuthController) AuthStatus(c *gin.Context) {

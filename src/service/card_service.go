@@ -3,7 +3,10 @@ package service
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
-	// "FinanceGolang/src/"
+	"FinanceGolang/src/security"
+	"errors"
+	"fmt"
+	"time"
 )
 
 type CardService interface {
@@ -13,15 +16,62 @@ type CardService interface {
 }
 
 type cardService struct {
-	cardRepo repository.CardRepository
+	cardRepo   repository.CardRepository
+	publicKey  string
+	hmacSecret []byte
 }
 
-func NewCardService(cardRepo repository.CardRepository) CardService {
-	return &cardService{cardRepo: cardRepo}
+func NewCardService(cardRepo repository.CardRepository, publicKey string, hmacSecret []byte) CardService {
+	return &cardService{
+		cardRepo:   cardRepo,
+		publicKey:  publicKey,
+		hmacSecret: hmacSecret,
+	}
 }
 
 func (s *cardService) CreateCard(card *model.Card) error {
-	return s.cardRepo.CreateCard(card)
+	fmt.Printf("checking card number: %s\n", card.Number)
+	// Проверка валидности номера карты
+	if !security.IsValidCardNumber(card.Number) {
+		return errors.New("invalid card number")
+	}
+
+	fmt.Printf("encrypting card CVV: %s\n", card.CVV)
+
+	// Шифрование номера карты и срока действия
+	encryptedNumber, err := security.EncryptData(card.Number, s.publicKey)
+	if err != nil {
+		return err
+	}
+	encryptedExpiryDate, err := security.EncryptData(card.ExpiryDate, s.publicKey)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("hashing card CVV: %s\n", card.CVV)
+
+	// Хеширование CVV
+	hashedCVV, err := security.HashCVV(card.CVV)
+	if err != nil {
+		return err
+	}
+
+	// Генерация HMAC для данных карты
+	hmacData := encryptedNumber + encryptedExpiryDate + hashedCVV
+	card.HMAC = security.GenerateHMAC(hmacData, s.hmacSecret)
+
+	// Сохранение зашифрованных данных в структуру
+	card.Number = encryptedNumber
+	card.ExpiryDate = encryptedExpiryDate
+	card.CVV = hashedCVV
+	card.CreatedAt = time.Now()
+
+	// Сохранение карты в базе данных
+	if err := s.cardRepo.CreateCard(card, s.publicKey, s.hmacSecret); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *cardService) GetCardByID(id uint) (*model.Card, error) {

@@ -1,6 +1,8 @@
 package database
 
 import (
+	"FinanceGolang/src/model"
+
 	"log"
 
 	"gorm.io/driver/sqlite" // Или другой драйвер для вашей базы данных
@@ -8,6 +10,14 @@ import (
 )
 
 var DB *gorm.DB
+
+type Handler struct {
+	DB *gorm.DB
+}
+
+func NewHandler(db *gorm.DB) *Handler {
+	return &Handler{DB: db}
+}
 
 func InitDatabase() {
 	var err error
@@ -23,4 +33,8 @@ func ConnectDB() (*gorm.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func CreateTables(db *gorm.DB) error {
+	return db.AutoMigrate(&model.User{}, &model.Account{}, &model.Card{})
 }

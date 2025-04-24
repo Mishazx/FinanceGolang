@@ -16,33 +16,31 @@ func NewRouter() *Router {
 }
 
 func (r *Router) RegisterAuthRoutes(g *gin.RouterGroup) {
-	db, err := database.ConnectDB()
-	if err != nil {
-		panic("Failed to connect to database")
-	}
-
-	userRepo := repository.NewUserRepository(db)
+	userRepo := repository.NewUserRepository(database.DB)
 	authService := service.NewAuthService(userRepo)
 
 	authController := NewAuthController(authService)
 	g.POST("/register", authController.Register)
 	g.POST("/login", authController.Login)
 	// jwt required
-	g.GET("/protected", security.AuthMiddleware(), authController.Protected)
+	g.GET("/my", security.AuthMiddleware(), authController.MyUser)
 	g.GET("/auth-status", security.AuthMiddleware(), authController.AuthStatus)
 }
 
 func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
-	db, err := database.ConnectDB()
-	if err != nil {
-		panic("Failed to connect to database")
-	}
-	accountRepo := repository.NewAccountRepository(db)
+	accountRepo := repository.AccountRepositoryInstance(database.DB)
 	accountService := service.NewAccountService(accountRepo)
 	accountController := NewAccountController(accountService)
 	g.POST("", security.AuthMiddleware(), accountController.CreateAccount)
-	g.GET(":id", security.AuthMiddleware(), accountController.GetAccountByID)
-	g.GET("", security.AuthMiddleware(), accountController.GetAccounts)
-	// g.PUT("/accounts/:id", accountController.UpdateAccount)
-	// g.DELETE("/accounts/:id", accountController.DeleteAccount)
+	g.GET("", security.AuthMiddleware(), accountController.GetAccountByUserID)
+}
+
+func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {
+
+	cardRepo := repository.CardRepositoryInstance(database.DB)
+	cardService := service.NewCardService(cardRepo, "defaultString", []byte("defaultBytes"))
+	cardController := NewCardController(cardService)
+	g.POST("", security.AuthMiddleware(), cardController.CreateCard)
+	// g.GET(":id", security.AuthMiddleware(), cardController.GetCardByID)
+	g.GET("", security.AuthMiddleware(), cardController.GetAllCards)
 }
