@@ -19,14 +19,23 @@ func NewAccountController(accountService service.AccountService) *AccountControl
 func (h *AccountController) CreateAccount(c *gin.Context) {
 	var account model.Account
 	if err := c.ShouldBindJSON(&account); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
 		return
 	}
 	if err := h.accountService.CreateAccount(&account); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create account"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": err.Error(),
+			"error":  "could not create account",
+		})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": "account created successfully"})
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"message": "account created successfully",
+	})
 }
 func (h *AccountController) GetAccountByID(c *gin.Context) {
 	// implementation
@@ -35,8 +44,23 @@ func (h *AccountController) GetAccountByID(c *gin.Context) {
 func (h *AccountController) GetAccounts(c *gin.Context) {
 	accounts, err := h.accountService.GetAllAccounts()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not get accounts"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status": "error",
+			"error":  err.Error(),
+		})
 		return
 	}
-	c.JSON(http.StatusOK, accounts)
+	if len(accounts) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":   "success",
+			"message":  "no accounts found",
+			"accounts": accounts,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":   "success",
+		"accounts": accounts,
+	})
 }

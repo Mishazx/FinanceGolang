@@ -20,16 +20,25 @@ func NewAuthController(authService service.AuthService) *AuthController {
 func (h *AuthController) Register(c *gin.Context) {
 	var user model.User
 	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
 		return
 	}
 
 	if err := h.authService.Register(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create user"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "user created successfully"})
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"message": "user created successfully",
+	})
 }
 
 func (h *AuthController) Login(c *gin.Context) {

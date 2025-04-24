@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type AuthService interface {
@@ -24,6 +25,17 @@ func NewAuthService(userRepo repository.UserRepository) AuthService {
 }
 
 func (s *authService) Register(user *model.User) error {
+	// Проверяем, существует ли пользователь с таким именем
+	_, err := s.userRepo.FindUserByUsername(user.Username)
+	if err != nil {
+		if err != gorm.ErrRecordNotFound {
+			// Возвращаем ошибку, если это не ошибка "запись не найдена"
+			return err
+		}
+	} else {
+		// Если пользователь найден, возвращаем ошибку
+		return fmt.Errorf("user with username %s already exists", user.Username)
+	}
 	// Хэшируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
