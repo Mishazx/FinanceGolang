@@ -1,0 +1,29 @@
+# Environment files
+.env
+
+# Go build files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Go workspace files
+*.out
+
+# Dependency directories
+vendor/
+
+# Database files
+*.db
+
+# IDE files
+*.idea/
+*.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
