@@ -4,6 +4,7 @@ import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
 	"FinanceGolang/src/security"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -11,6 +12,7 @@ import (
 type AuthService interface {
 	Register(user *model.User) error
 	Login(user *model.User) (string, error)
+	AuthStatus(token string) (bool, error)
 }
 
 type authService struct {
@@ -47,4 +49,16 @@ func (s *authService) Login(user *model.User) (string, error) {
 
 	// Генерируем токен
 	return security.GenerateToken(foundUser.Username)
+}
+
+func (s *authService) AuthStatus(token string) (bool, error) {
+	token, _ = security.CutToken(token)
+
+	IsTokenValid := security.IsTokenValid(token)
+
+	if !IsTokenValid {
+		return false, fmt.Errorf("invalid token")
+	}
+
+	return true, nil
 }

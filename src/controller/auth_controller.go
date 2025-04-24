@@ -52,3 +52,23 @@ func (h *AuthController) Protected(c *gin.Context) {
 	username := c.MustGet("username").(string)
 	c.JSON(http.StatusOK, gin.H{"message": "Hello " + username})
 }
+
+func (h *AuthController) AuthStatus(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+
+	isValid, err := h.authService.AuthStatus(token)
+	if err != nil || !isValid {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "success",
+			"message": "invalid token",
+			"isValid": isValid,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "token is valid",
+		"isValid": isValid,
+	})
+}

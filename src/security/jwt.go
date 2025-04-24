@@ -1,6 +1,7 @@
 package security
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -15,6 +16,8 @@ type Claims struct {
 }
 
 var jwtSecret = []byte("your_secret_key")
+
+var ErrTokenExpired = errors.New("token expired")
 
 func GenerateToken(username string) (string, error) {
 	claims := Claims{
@@ -34,6 +37,7 @@ func GenerateToken(username string) (string, error) {
 }
 
 func ParseToken(tokenString string) (*Claims, error) {
+	fmt.Printf("Parsing token: %s\n", tokenString)
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -52,29 +56,81 @@ func ParseToken(tokenString string) (*Claims, error) {
 		return nil, fmt.Errorf("invalid token")
 	}
 
+	fmt.Printf("Parsed claims: %+v\n", claims)
 	return claims, nil
+}
+
+func GetToken(c *gin.Context) (string, error) {
+	// Попытка извлечь токен из заголовка Authorization
+	tokenString := c.GetHeader("Authorization")
+	if tokenString == "" {
+		// Если токен отсутствует в заголовке, ищем его в параметрах запроса
+		tokenString = c.Query("token")
+		if tokenString == "" {
+			return "", fmt.Errorf("token not found in either Authorization header or query parameters")
+		}
+	}
+
+	// Удаляем префикс "Bearer ", если он есть
+	if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
+		tokenString = tokenString[7:]
+	}
+
+	return tokenString, nil
+}
+
+func IsTokenValid(tokenString string) bool {
+	claims := &Claims{}
+	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return jwtSecret, nil
+	})
+
+	// Если ошибка или токен недействителен, возвращаем false
+	if err != nil {
+		log.Printf("Error validating token: %v", err)
+		return false
+	}
+
+	return true
+}
+
+func CutToken(tokenString string) (string, error) {
+	// Удаляем префикс "Bearer ", если он есть
+	if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
+		tokenString = tokenString[7:]
+	}
+
+	return tokenString, nil
 }
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("Authorization")
 		if tokenString == "" {
-			c.JSON(401, gin.H{"error": "Authorization header is required"})
+			c.JSON(401, gin.H{
+				"status":  "error",
+				"message": "Authorization header is required",
+			})
 			c.Abort()
 			return
 		}
 
-		// Удаляем префикс "Bearer "
-		if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
-			tokenString = tokenString[7:]
-		}
+		tokenString, _ = CutToken(tokenString)
 
 		log.Printf("Received token: %s", tokenString)
 
 		claims, err := ParseToken(tokenString)
 		if err != nil {
-			log.Printf("Token parsing error: %v", err)
-			c.JSON(401, gin.H{"error": "invalid token"})
+			if errors.Is(err, ErrTokenExpired) {
+				log.Printf("Token expired: %v", err)
+				c.JSON(401, gin.H{"status": "error", "message": "token expired"})
+			} else {
+				log.Printf("Token parsing error: %v", err)
+				c.JSON(401, gin.H{"status": "error", "message": "invalid token"})
+			}
 			c.Abort()
 			return
 		}

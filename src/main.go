@@ -17,6 +17,7 @@ func main() {
 	router := controller.NewRouter()
 
 	router.RegisterAuthRoutes(r.Group("/api/auth"))
+	router.RegisterAccountRoutes(r.Group("/api/accounts"))
 
 	r.Run(":8080")
 }
