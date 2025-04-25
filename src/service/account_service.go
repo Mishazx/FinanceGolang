@@ -7,7 +7,7 @@ import (
 )
 
 type AccountService interface {
-	CreateAccount(account *model.Account) error
+	CreateAccount(account *model.Account, userID uint) error
 	GetAccountByID(id uint) (*model.Account, error)
 	GetAccountByUserID(id uint) ([]model.Account, error)
 	GetAllAccounts() ([]model.Account, error)
@@ -21,8 +21,9 @@ func NewAccountService(accountRepo repository.AccountRepository) AccountService 
 	return &accountService{accountRepo: accountRepo}
 }
 
-func (s *accountService) CreateAccount(account *model.Account) error {
-	if err := s.accountRepo.CreateAccount(account); err != nil {
+func (s *accountService) CreateAccount(account *model.Account, userID uint) error {
+	fmt.Println("Creating account for user ID:", userID)
+	if err := s.accountRepo.CreateAccount(account, userID); err != nil {
 		return fmt.Errorf("could not create account: %v", err)
 	}
 	return nil

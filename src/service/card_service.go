@@ -30,23 +30,35 @@ func NewCardService(cardRepo repository.CardRepository, publicKey string, hmacSe
 }
 
 func (s *cardService) CreateCard(card *model.Card) error {
-	fmt.Printf("checking card number: %s\n", card.Number)
+	// GenerateCardNumber("4", 16),  // Visa
+	// GenerateCardNumber("5", 16),  // MasterCard
+	// GenerateCardNumber("37", 15), // American Express
+	// GenerateCardNumber("6", 16),  // Discover
+	card.Number = security.GenerateCardNumber("4", 16)
+	fmt.Println("Generated card number:", card.Number)
+
 	// Проверка валидности номера карты
 	if !security.IsValidCardNumber(card.Number) {
 		return errors.New("invalid card number")
 	}
 
+	card.CVV = security.GenerateCVV()
+	card.ExpiryDate = security.GenerateExpiryDate()
+
 	fmt.Printf("encrypting card CVV: %s\n", card.CVV)
+	fmt.Printf(("encrypting card expiry date: %s\n"), card.ExpiryDate)
 
 	// Шифрование номера карты и срока действия
-	encryptedNumber, err := security.EncryptData(card.Number, s.publicKey)
+	encryptedNumber, err := security.EncryptData(card.Number)
 	if err != nil {
 		return err
 	}
-	encryptedExpiryDate, err := security.EncryptData(card.ExpiryDate, s.publicKey)
+	fmt.Println("Encrypted Number:", encryptedNumber)
+	encryptedExpiryDate, err := security.EncryptData(card.ExpiryDate)
 	if err != nil {
 		return err
 	}
+	fmt.Println("Encrypted Expiry Date:", encryptedExpiryDate)
 
 	fmt.Printf("hashing card CVV: %s\n", card.CVV)
 

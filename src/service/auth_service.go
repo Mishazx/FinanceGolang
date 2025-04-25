@@ -32,7 +32,6 @@ func (s *authService) Register(user *model.User) error {
 	_, err := s.userRepo.FindUserByUsername(user.Username)
 	if err != nil {
 		if err != gorm.ErrRecordNotFound {
-			// Возвращаем ошибку, если это не ошибка "запись не найдена"
 			return err
 		}
 	} else {
@@ -61,7 +60,7 @@ func (s *authService) Login(user *model.User) (string, error) {
 		return "", err
 	}
 	// Генерируем токен
-	return security.GenerateToken(foundUser.Username)
+	return security.GenerateToken(foundUser)
 }
 
 func (s *authService) GetUserByUsername(username string) (*model.User, error) {

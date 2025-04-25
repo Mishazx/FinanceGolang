@@ -28,7 +28,9 @@ func (r *userRepo) CreateUser(user *model.User) error {
 
 func (r *userRepo) FindUserByUsername(username string) (*model.User, error) {
 	var user model.User
-	if err := r.db.Select("id, username").Where("username = ?", username).First(&user).Error; err != nil {
+
+	// if err := r.db.Select("id, username").Where("username = ?", username).First(&user).Error; err != nil {
+	if err := r.db.Where("username = ?", username).First(&user).Error; err != nil {
 		fmt.Println("Error finding user:", err)
 		return nil, err
 	}

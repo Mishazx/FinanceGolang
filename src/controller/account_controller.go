@@ -26,7 +26,7 @@ func (h *AccountController) CreateAccount(c *gin.Context) {
 		})
 		return
 	}
-	if err := h.accountService.CreateAccount(&account); err != nil {
+	if err := h.accountService.CreateAccount(&account, c.MustGet("userID").(uint)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": err.Error(),
 			"error":  "could not create account",
@@ -36,6 +36,7 @@ func (h *AccountController) CreateAccount(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"status":  "success",
 		"message": "account created successfully",
+		"account": account,
 	})
 }
 func (h *AccountController) GetAccountByUserID(c *gin.Context) {

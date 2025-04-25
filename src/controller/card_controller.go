@@ -27,8 +27,8 @@ func (cc *CardController) CreateCard(c *gin.Context) {
 	}
 	if err := cc.cardService.CreateCard(&card); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": err.Error(),
-			"error":  "could not create card",
+			"status":  err.Error(),
+			"message": "could not create card",
 		})
 		return
 	}
@@ -46,8 +46,8 @@ func (cc *CardController) GetAllCards(c *gin.Context) {
 	cards, err := cc.cardService.GetAllCards()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"status": "error",
-			"error":  err.Error(),
+			"status":  "error",
+			"message": err.Error(),
 		})
 		return
 	}

@@ -33,6 +33,7 @@ func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
 	accountController := NewAccountController(accountService)
 	g.POST("", security.AuthMiddleware(), accountController.CreateAccount)
 	g.GET("", security.AuthMiddleware(), accountController.GetAccountByUserID)
+	g.GET("/all", security.AuthMiddleware(), accountController.GetAccountsAll)
 }
 
 func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {

@@ -1,6 +1,7 @@
 package security
 
 import (
+	"FinanceGolang/src/model"
 	"errors"
 	"fmt"
 	"log"
@@ -21,9 +22,11 @@ var jwtSecret = []byte("your_secret_key")
 
 var ErrTokenExpired = errors.New("token expired")
 
-func GenerateToken(username string) (string, error) {
+func GenerateToken(user *model.User) (string, error) {
 	claims := Claims{
-		Username: username,
+		UserID:   user.ID,
+		Username: user.Username,
+		Email:    user.Email,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * 72).Unix(),
 		},

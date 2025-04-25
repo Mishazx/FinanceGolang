@@ -7,7 +7,7 @@ import (
 )
 
 type AccountRepository interface {
-	CreateAccount(account *model.Account) error
+	CreateAccount(account *model.Account, userID uint) error
 	GetAccountByID(id uint) (*model.Account, error)
 	GetAllAccounts() ([]model.Account, error)
 	UpdateAccount(account *model.Account) error
@@ -28,7 +28,9 @@ func AccountRepositoryInstance(db *gorm.DB) AccountRepository {
 	}
 }
 
-func (r *accountRepo) CreateAccount(account *model.Account) error {
+func (r *accountRepo) CreateAccount(account *model.Account, userID uint) error {
+	// Устанавливаем ID пользователя для аккаунта
+	account.UserID = int(userID)
 	return r.db.Create(account).Error
 }
 

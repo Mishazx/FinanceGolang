@@ -31,12 +31,12 @@ func CardRepositoryInstance(db *gorm.DB) CardRepository {
 func (c *cardRepo) CreateCard(card *model.Card, publicKey string, hmacSecret []byte) error {
 	// Шифрование номера карты и срока действия
 	fmt.Printf("PublicKey: %s\n", publicKey)
-	encryptedNumber, err := security.EncryptData(card.Number, publicKey)
+	encryptedNumber, err := security.EncryptData(card.Number)
 	fmt.Printf("Encrypted Number: %s\n", encryptedNumber)
 	if err != nil {
 		return err
 	}
-	encryptedExpiryDate, err := security.EncryptData(card.ExpiryDate, publicKey)
+	encryptedExpiryDate, err := security.EncryptData(card.ExpiryDate)
 	if err != nil {
 		return err
 	}
