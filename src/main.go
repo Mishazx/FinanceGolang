@@ -3,6 +3,9 @@ package main
 import (
 	"FinanceGolang/src/controller"
 	"FinanceGolang/src/database"
+	"FinanceGolang/src/repository"
+	"FinanceGolang/src/service"
+	"log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,6 +14,13 @@ func main() {
 	database.InitDatabase()
 
 	database.CreateTables(database.DB)
+
+	// Инициализация ролей
+	roleRepo := repository.NewRoleRepository(database.DB)
+	roleService := service.NewRoleService(roleRepo)
+	if err := roleService.InitializeDefaultRoles(); err != nil {
+		log.Fatalf("Failed to initialize roles: %v", err)
+	}
 
 	r := gin.Default()
 

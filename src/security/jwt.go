@@ -101,6 +101,7 @@ func AuthMiddleware(deps AuthMiddlewareDeps) gin.HandlerFunc {
 
 		c.Set("userID", user.ID)
 		c.Set("username", user.Username)
+		c.Set("user", user)
 		c.Next()
 	}
 }

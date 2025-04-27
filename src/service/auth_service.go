@@ -1,6 +1,7 @@
 package service
 
 import (
+	"FinanceGolang/src/database"
 	"FinanceGolang/src/dto"
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
@@ -22,10 +23,14 @@ type AuthService interface {
 
 type authService struct {
 	userRepo repository.UserRepository
+	roleRepo repository.RoleRepository
 }
 
 func NewAuthService(userRepo repository.UserRepository) AuthService {
-	return &authService{userRepo: userRepo}
+	return &authService{
+		userRepo: userRepo,
+		roleRepo: repository.NewRoleRepository(database.DB),
+	}
 }
 
 func (s *authService) Register(user *model.User) error {
@@ -47,7 +52,16 @@ func (s *authService) Register(user *model.User) error {
 	user.Password = string(hashedPassword)
 
 	// Сохраняем пользователя в базе данных
-	return s.userRepo.CreateUser(user)
+	if err := s.userRepo.CreateUser(user); err != nil {
+		return err
+	}
+
+	// Назначаем роль user новому пользователю
+	if err := s.roleRepo.AssignRoleToUser(user.ID, model.RoleUser); err != nil {
+		return fmt.Errorf("failed to assign default role: %v", err)
+	}
+
+	return nil
 }
 
 func (s *authService) Login(user *model.User) (string, error) {

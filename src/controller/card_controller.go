@@ -30,7 +30,15 @@ func (cc *CardController) CreateCard(c *gin.Context) {
 	if err := c.ShouldBindJSON(&card); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
-			"message": err.Error(),
+			"message": "invalid request body",
+		})
+		return
+	}
+
+	if card.AccountID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "account_id is required",
 		})
 		return
 	}
