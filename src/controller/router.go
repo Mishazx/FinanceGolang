@@ -18,36 +18,58 @@ func NewRouter() *Router {
 func (r *Router) RegisterAuthRoutes(g *gin.RouterGroup) {
 	userRepo := repository.NewUserRepository(database.DB)
 	authService := service.NewAuthService(userRepo)
+	authCheckService := service.NewAuthCheckService(userRepo)
 
 	authController := NewAuthController(authService)
 	g.POST("/register", authController.Register)
 	g.POST("/login", authController.Login)
 	// jwt required
-	g.GET("/my", security.AuthMiddleware(), authController.MyUser)
-	g.GET("/auth-status", security.AuthMiddleware(), authController.AuthStatus)
+	g.GET("/my", security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}), authController.MyUser)
+	g.GET("/auth-status", security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}), authController.AuthStatus)
 }
 
 func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
+	userRepo := repository.NewUserRepository(database.DB)
+	authCheckService := service.NewAuthCheckService(userRepo)
 	accountRepo := repository.AccountRepositoryInstance(database.DB)
 	accountService := service.NewAccountService(accountRepo)
 	accountController := NewAccountController(accountService)
-	g.POST("", security.AuthMiddleware(), accountController.CreateAccount)
-	g.GET("", security.AuthMiddleware(), accountController.GetAccountByUserID)
-	g.GET("/all", security.AuthMiddleware(), accountController.GetAccountsAll)
+	g.POST("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}), accountController.CreateAccount)
+	g.GET("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}), accountController.GetAccountByUserID)
+	g.GET("/all", security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}), accountController.GetAccountsAll)
 }
 
 func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {
-
+	userRepo := repository.NewUserRepository(database.DB)
+	authCheckService := service.NewAuthCheckService(userRepo)
 	cardRepo := repository.CardRepositoryInstance(database.DB)
-	cardService := service.NewCardService(cardRepo, "defaultString", []byte("defaultBytes"))
+	accountRepo := repository.AccountRepositoryInstance(database.DB)
+	cardService := service.NewCardService(cardRepo, accountRepo, "defaultString", []byte("defaultBytes"))
 	cardController := NewCardController(cardService)
-	g.POST("", security.AuthMiddleware(), cardController.CreateCard)
-	// g.GET(":id", security.AuthMiddleware(), cardController.GetCardByID)
-	g.GET("", security.AuthMiddleware(), cardController.GetAllCards)
+	g.POST("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}), cardController.CreateCard)
+	g.GET("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}), cardController.GetAllCards)
 }
 
 func (r *Router) RegisterKeyRateRoutes(g *gin.RouterGroup) {
+	userRepo := repository.NewUserRepository(database.DB)
+	authCheckService := service.NewAuthCheckService(userRepo)
 	cbrService := service.NewCbrService()
 	cbrController := NewCbrController(cbrService)
-	g.GET("", security.AuthMiddleware(), cbrController.GetKeyRate)
+	g.GET("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}), cbrController.GetKeyRate)
 }

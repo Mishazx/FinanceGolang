@@ -3,7 +3,9 @@ package controller
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/service"
-	"fmt"
+	// "FinanceGolang/src/repository"
+	// "FinanceGolang/src/database"
+	// "fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -18,26 +20,11 @@ func NewCardController(cardService service.CardService) *CardController {
 }
 
 func (cc *CardController) CreateCard(c *gin.Context) {
-	// Печатаем все поля из контекста
-
-	fmt.Println("START !!! ------------")
-
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "user not found"})
 		return
 	}
-
-	fmt.Println("userID: ", userID)
-
-	fmt.Println("Request URL:", c.Request.URL.String())
-	for key, values := range c.Request.URL.Query() {
-		for _, value := range values {
-			fmt.Printf("%s: %s\n", key, value)
-		}
-	}
-
-	fmt.Println("END !!! ------------")
 
 	var card model.Card
 	if err := c.ShouldBindJSON(&card); err != nil {
@@ -47,11 +34,16 @@ func (cc *CardController) CreateCard(c *gin.Context) {
 		})
 		return
 	}
-	unsecureCard, err := cc.cardService.CreateCard(&card)
+
+	unsecureCard, err := cc.cardService.CreateCard(&card, userID.(uint))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  err.Error(),
-			"message": "could not create card",
+		status := http.StatusInternalServerError
+		if err.Error() == "account does not belong to the user" {
+			status = http.StatusForbidden
+		}
+		c.JSON(status, gin.H{
+			"status":  "error",
+			"message": err.Error(),
 		})
 		return
 	}

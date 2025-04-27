@@ -22,11 +22,11 @@ var jwtSecret = []byte("your_secret_key")
 
 var ErrTokenExpired = errors.New("token expired")
 
-func GenerateToken(user *model.User) (string, error) {
+func GenerateToken(userID uint, username, email string) (string, error) {
 	claims := Claims{
-		UserID:   user.ID,
-		Username: user.Username,
-		Email:    user.Email,
+		UserID:   userID,
+		Username: username,
+		Email:    email,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * 72).Unix(),
 		},
@@ -42,7 +42,6 @@ func GenerateToken(user *model.User) (string, error) {
 }
 
 func ParseToken(tokenString string) (*Claims, error) {
-	fmt.Printf("Parsing token: %s\n", tokenString)
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -52,66 +51,28 @@ func ParseToken(tokenString string) (*Claims, error) {
 	})
 
 	if err != nil {
-		fmt.Printf("Error parsing token: %v\n", err)
 		return nil, err
 	}
 
 	if !token.Valid {
-		fmt.Println("Token is invalid")
 		return nil, fmt.Errorf("invalid token")
 	}
 
-	fmt.Printf("Parsed claims: %+v\n", claims)
 	return claims, nil
 }
 
-func GetToken(c *gin.Context) (string, error) {
-	// Попытка извлечь токен из заголовка Authorization
-	tokenString := c.GetHeader("Authorization")
-	if tokenString == "" {
-		// Если токен отсутствует в заголовке, ищем его в параметрах запроса
-		tokenString = c.Query("token")
-		if tokenString == "" {
-			return "", fmt.Errorf("token not found in either Authorization header or query parameters")
-		}
-	}
-
-	// Удаляем префикс "Bearer ", если он есть
-	if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
-		tokenString = tokenString[7:]
-	}
-
-	return tokenString, nil
-}
-
-func IsTokenValid(tokenString string) bool {
-	claims := &Claims{}
-	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return jwtSecret, nil
-	})
-
-	// Если ошибка или токен недействителен, возвращаем false
-	if err != nil {
-		log.Printf("Error validating token: %v", err)
-		return false
-	}
-
-	return true
-}
-
 func CutToken(tokenString string) (string, error) {
-	// Удаляем префикс "Bearer ", если он есть
 	if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
 		tokenString = tokenString[7:]
 	}
-
 	return tokenString, nil
 }
 
-func AuthMiddleware() gin.HandlerFunc {
+type AuthMiddlewareDeps struct {
+	ValidateUserFromToken func(tokenString string) (*model.User, error)
+}
+
+func AuthMiddleware(deps AuthMiddlewareDeps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("Authorization")
 		if tokenString == "" {
@@ -127,21 +88,19 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		log.Printf("Received token: %s", tokenString)
 
-		claims, err := ParseToken(tokenString)
+		// Проверяем токен и получаем пользователя
+		user, err := deps.ValidateUserFromToken(tokenString)
 		if err != nil {
-			if errors.Is(err, ErrTokenExpired) {
-				log.Printf("Token expired: %v", err)
-				c.JSON(401, gin.H{"status": "error", "message": "token expired"})
-			} else {
-				log.Printf("Token parsing error: %v", err)
-				c.JSON(401, gin.H{"status": "error", "message": "invalid token"})
-			}
+			c.JSON(401, gin.H{
+				"status":  "error",
+				"message": err.Error(),
+			})
 			c.Abort()
 			return
 		}
 
-		c.Set("userID", claims.UserID)
-		c.Set("username", claims.Username)
+		c.Set("userID", user.ID)
+		c.Set("username", user.Username)
 		c.Next()
 	}
 }

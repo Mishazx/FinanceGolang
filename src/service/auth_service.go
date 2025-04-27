@@ -5,6 +5,7 @@ import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
 	"FinanceGolang/src/security"
+	// "FinanceGolang/src/token"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
@@ -60,7 +61,7 @@ func (s *authService) Login(user *model.User) (string, error) {
 		return "", err
 	}
 	// Генерируем токен
-	return security.GenerateToken(foundUser)
+	return security.GenerateToken(foundUser.ID, foundUser.Username, foundUser.Email)
 }
 
 func (s *authService) GetUserByUsername(username string) (*model.User, error) {
@@ -84,10 +85,20 @@ func (s *authService) GetUserByUsernameWithoutPassword(username string) (*dto.Us
 func (s *authService) AuthStatus(token string) (bool, error) {
 	token, _ = security.CutToken(token)
 
-	IsTokenValid := security.IsTokenValid(token)
-
-	if !IsTokenValid {
+	claims, err := security.ParseToken(token)
+	if err != nil {
 		return false, fmt.Errorf("invalid token")
+	}
+
+	// Проверяем существование пользователя
+	user, err := s.userRepo.FindUserByUsername(claims.Username)
+	if err != nil {
+		return false, fmt.Errorf("No valid auth token, user not found")
+	}
+
+	// Проверяем соответствие ID
+	if user.ID != claims.UserID {
+		return false, fmt.Errorf("No valid auth token, invalid user")
 	}
 
 	return true, nil
