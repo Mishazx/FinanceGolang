@@ -10,11 +10,14 @@ type CreditRepository interface {
 	CreateCredit(credit *model.Credit) error
 	GetCreditByID(id uint) (*model.Credit, error)
 	GetCreditsByUserID(userID uint) ([]model.Credit, error)
+	GetCreditsByAccountID(accountID uint) ([]model.Credit, error)
+	GetAllCredits() ([]model.Credit, error)
 	UpdateCredit(credit *model.Credit) error
 	CreatePaymentSchedule(schedule *model.PaymentSchedule) error
-	GetPaymentScheduleByCreditID(creditID uint) ([]model.PaymentSchedule, error)
+	GetPaymentSchedule(creditID uint) ([]model.PaymentSchedule, error)
 	UpdatePaymentSchedule(schedule *model.PaymentSchedule) error
 	GetOverduePayments() ([]model.PaymentSchedule, error)
+	UpdatePaymentStatus(paymentID uint, status string) error
 }
 
 type creditRepo struct {
@@ -47,6 +50,22 @@ func (r *creditRepo) GetCreditsByUserID(userID uint) ([]model.Credit, error) {
 	return credits, nil
 }
 
+func (r *creditRepo) GetCreditsByAccountID(accountID uint) ([]model.Credit, error) {
+	var credits []model.Credit
+	if err := r.db.Where("account_id = ?", accountID).Find(&credits).Error; err != nil {
+		return nil, err
+	}
+	return credits, nil
+}
+
+func (r *creditRepo) GetAllCredits() ([]model.Credit, error) {
+	var credits []model.Credit
+	if err := r.db.Find(&credits).Error; err != nil {
+		return nil, err
+	}
+	return credits, nil
+}
+
 func (r *creditRepo) UpdateCredit(credit *model.Credit) error {
 	return r.db.Save(credit).Error
 }
@@ -55,9 +74,9 @@ func (r *creditRepo) CreatePaymentSchedule(schedule *model.PaymentSchedule) erro
 	return r.db.Create(schedule).Error
 }
 
-func (r *creditRepo) GetPaymentScheduleByCreditID(creditID uint) ([]model.PaymentSchedule, error) {
+func (r *creditRepo) GetPaymentSchedule(creditID uint) ([]model.PaymentSchedule, error) {
 	var schedules []model.PaymentSchedule
-	if err := r.db.Where("credit_id = ?", creditID).Order("payment_number").Find(&schedules).Error; err != nil {
+	if err := r.db.Where("credit_id = ?", creditID).Find(&schedules).Error; err != nil {
 		return nil, err
 	}
 	return schedules, nil
@@ -70,8 +89,12 @@ func (r *creditRepo) UpdatePaymentSchedule(schedule *model.PaymentSchedule) erro
 func (r *creditRepo) GetOverduePayments() ([]model.PaymentSchedule, error) {
 	var schedules []model.PaymentSchedule
 	now := time.Now()
-	if err := r.db.Where("status = ? AND payment_date < ?", "pending", now).Find(&schedules).Error; err != nil {
+	if err := r.db.Where("status = ? AND due_date < ?", model.PaymentStatusPending, now).Find(&schedules).Error; err != nil {
 		return nil, err
 	}
 	return schedules, nil
+}
+
+func (r *creditRepo) UpdatePaymentStatus(paymentID uint, status string) error {
+	return r.db.Model(&model.PaymentSchedule{}).Where("id = ?", paymentID).Update("status", status).Error
 } 

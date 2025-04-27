@@ -16,6 +16,8 @@ type AccountRepository interface {
 	GetAccountByName(name string) (*model.Account, error)
 	GetAccountByType(accountType string) ([]model.Account, error)
 	GetAccountByBalanceRange(minBalance, maxBalance float64) ([]model.Account, error)
+	UpdateBalance(accountID uint, amount float64) error
+	GetUserByAccountID(accountID uint) (*model.User, error)
 }
 
 type accountRepo struct {
@@ -81,4 +83,23 @@ func (r *accountRepo) GetAccountByBalanceRange(minBalance, maxBalance float64) (
 		return nil, err
 	}
 	return accounts, nil
+}
+
+func (r *accountRepo) UpdateBalance(accountID uint, amount float64) error {
+	return r.db.Model(&model.Account{}).Where("id = ?", accountID).
+		Update("balance", gorm.Expr("balance + ?", amount)).Error
+}
+
+func (r *accountRepo) GetUserByAccountID(accountID uint) (*model.User, error) {
+	var account model.Account
+	if err := r.db.First(&account, accountID).Error; err != nil {
+		return nil, err
+	}
+
+	var user model.User
+	if err := r.db.First(&user, account.UserID).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }

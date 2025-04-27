@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
+	// "strconv"
 	"time"
 )
 
@@ -23,14 +23,14 @@ type creditService struct {
 	creditRepo     repository.CreditRepository
 	accountRepo    repository.AccountRepository
 	transactionRepo repository.TransactionRepository
-	keyRateService CbrService
+	keyRateService *ExternalService
 }
 
 func NewCreditService(
 	creditRepo repository.CreditRepository,
 	accountRepo repository.AccountRepository,
 	transactionRepo repository.TransactionRepository,
-	keyRateService CbrService,
+	keyRateService *ExternalService,
 ) CreditService {
 	return &creditService{
 		creditRepo:     creditRepo,
@@ -51,15 +51,9 @@ func (s *creditService) CreateCredit(userID uint, accountID uint, amount float64
 	}
 
 	// Получаем текущую ключевую ставку
-	keyRateData, err := s.keyRateService.GetLastKeyRate()
+	keyRate, err := s.keyRateService.GetKeyRate()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key rate: %v", err)
-	}
-
-	// Преобразуем строковую ставку в число
-	keyRate, err := strconv.ParseFloat(keyRateData.Rate, 64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse key rate: %v", err)
 	}
 
 	// Рассчитываем процентную ставку (ключевая ставка + 5%)
@@ -106,13 +100,14 @@ func (s *creditService) createPaymentSchedule(credit *model.Credit) error {
 		remainingAmount -= principalAmount
 
 		schedule := &model.PaymentSchedule{
-			CreditID:        credit.ID,
-			PaymentNumber:   i,
-			PaymentDate:     credit.StartDate.AddDate(0, i, 0),
-			PrincipalAmount: principalAmount,
-			InterestAmount:  interestAmount,
-			TotalAmount:     credit.MonthlyPayment,
-			Status:          "pending",
+			CreditID:      credit.ID,
+			PaymentNumber: i,
+			DueDate:       credit.StartDate.AddDate(0, i, 0),
+			Amount:        credit.MonthlyPayment,
+			Interest:      interestAmount,
+			Principal:     principalAmount,
+			TotalAmount:   credit.MonthlyPayment,
+			Status:        model.PaymentStatusPending,
 		}
 
 		if err := s.creditRepo.CreatePaymentSchedule(schedule); err != nil {
@@ -132,12 +127,12 @@ func (s *creditService) GetUserCredits(userID uint) ([]model.Credit, error) {
 }
 
 func (s *creditService) GetPaymentSchedule(creditID uint) ([]model.PaymentSchedule, error) {
-	return s.creditRepo.GetPaymentScheduleByCreditID(creditID)
+	return s.creditRepo.GetPaymentSchedule(creditID)
 }
 
 func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
 	// Получаем график платежей
-	schedules, err := s.creditRepo.GetPaymentScheduleByCreditID(creditID)
+	schedules, err := s.creditRepo.GetPaymentSchedule(creditID)
 	if err != nil {
 		return fmt.Errorf("failed to get payment schedule: %v", err)
 	}

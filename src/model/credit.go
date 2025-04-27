@@ -13,6 +13,14 @@ const (
 	CreditStatusCancelled CreditStatus = "cancelled" // Отменен
 )
 
+type PaymentStatus string
+
+const (
+	PaymentStatusPending PaymentStatus = "pending"
+	PaymentStatusPaid    PaymentStatus = "paid"
+	PaymentStatusOverdue PaymentStatus = "overdue"
+)
+
 type Credit struct {
 	ID              uint        `json:"id" gorm:"primaryKey"`
 	UserID          uint        `json:"user_id"`
@@ -33,17 +41,18 @@ type Credit struct {
 }
 
 type PaymentSchedule struct {
-	ID              uint      `json:"id" gorm:"primaryKey"`
-	CreditID        uint      `json:"credit_id"`
-	PaymentNumber   int       `json:"payment_number"`
-	PaymentDate     time.Time `json:"payment_date"`
-	PrincipalAmount float64   `json:"principal_amount"`
-	InterestAmount  float64   `json:"interest_amount"`
-	TotalAmount     float64   `json:"total_amount"`
-	Status          string    `json:"status" gorm:"type:varchar(20)"`
-	PaidAt          *time.Time `json:"paid_at,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID            uint          `json:"id" gorm:"primaryKey"`
+	CreditID      uint          `json:"credit_id"`
+	PaymentNumber int           `json:"payment_number"`
+	DueDate       time.Time     `json:"due_date"`
+	Amount        float64       `json:"amount"`
+	Interest      float64       `json:"interest"`
+	Principal     float64       `json:"principal"`
+	TotalAmount   float64       `json:"total_amount"`
+	Status        PaymentStatus `json:"status" gorm:"type:varchar(20)"`
+	PaidAt        *time.Time    `json:"paid_at,omitempty"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
 
 	Credit Credit `gorm:"foreignKey:CreditID" json:"credit"`
 } 

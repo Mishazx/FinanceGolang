@@ -14,8 +14,8 @@ const (
 type TransactionCategory string
 
 const (
-	Income  TransactionCategory = "income"
-	Expense TransactionCategory = "expense"
+	Income   TransactionCategory = "income"
+	Expense  TransactionCategory = "expense"
 	Transfer TransactionCategory = "transfer"
 )
 
@@ -43,10 +43,22 @@ type Analytics struct {
 	BalanceForecast []BalanceForecast `json:"balance_forecast" gorm:"-"`
 }
 
+type IncomeExpenseStats struct {
+	TotalIncome  float64
+	TotalExpense float64
+	Categories   map[string]float64
+}
+
 type BalanceForecast struct {
-	Date   time.Time `json:"date"`
-	Amount float64   `json:"amount"`
-	Type   string    `json:"type"` // planned, actual
+	CurrentBalance float64
+	MonthlyForecast []MonthlyForecast
+}
+
+type MonthlyForecast struct {
+	Month   string
+	Income  float64
+	Expense float64
+	Balance float64
 }
 
 type AnalyticsRequest struct {

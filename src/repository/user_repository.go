@@ -12,6 +12,7 @@ type UserRepository interface {
 	CreateUser(user *model.User) error
 	GetUserByUsername(username string) (*model.User, error)
 	GetUserByID(id uint) (*model.User, error)
+	GetUserByEmail(email string) (*model.User, error)
 	UpdateUser(user *model.User) error
 	DeleteUser(id uint) error
 	FindUserByUsername(username string) (*model.User, error)
@@ -44,7 +45,15 @@ func (r *userRepo) GetUserByUsername(username string) (*model.User, error) {
 
 func (r *userRepo) GetUserByID(id uint) (*model.User, error) {
 	var user model.User
-	err := r.db.First(&user, id).Error
+	if err := r.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepo) GetUserByEmail(email string) (*model.User, error) {
+	var user model.User
+	err := r.db.Where("email = ?", email).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil

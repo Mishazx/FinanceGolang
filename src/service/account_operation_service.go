@@ -154,5 +154,8 @@ func (s *accountOperationService) Transfer(fromAccountID, toAccountID uint, amou
 }
 
 func (s *accountOperationService) GetTransactions(accountID uint) ([]model.Transaction, error) {
-	return s.transactionRepo.GetTransactionsByAccountID(accountID)
+	// Получаем транзакции за последние 30 дней
+	endDate := time.Now()
+	startDate := endDate.AddDate(0, 0, -30)
+	return s.transactionRepo.GetTransactionsByAccountID(accountID, startDate, endDate)
 } 

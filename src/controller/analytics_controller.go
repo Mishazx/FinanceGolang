@@ -1,77 +1,105 @@
 package controller
 
 import (
-	"FinanceGolang/src/model"
 	"FinanceGolang/src/service"
 	"net/http"
-	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AnalyticsController struct {
-	analyticsService service.AnalyticsService
+	analyticsService *service.AnalyticsService
 }
 
-func NewAnalyticsController(analyticsService service.AnalyticsService) *AnalyticsController {
-	return &AnalyticsController{analyticsService: analyticsService}
+func NewAnalyticsController(analyticsService *service.AnalyticsService) *AnalyticsController {
+	return &AnalyticsController{
+		analyticsService: analyticsService,
+	}
 }
 
-func (ac *AnalyticsController) GetAnalytics(c *gin.Context) {
-	var request model.AnalyticsRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Неверный формат запроса",
-		})
+// GetAnalytics возвращает статистику доходов и расходов
+func (c *AnalyticsController) GetAnalytics(ctx *gin.Context) {
+	accountID := ctx.GetUint("account_id")
+	if accountID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Не указан ID счета"})
 		return
 	}
 
-	analytics, err := ac.analyticsService.GetAnalytics(&request)
+	startDateStr := ctx.Query("start_date")
+	endDateStr := ctx.Query("end_date")
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "error",
-			"message": "Ошибка при получении аналитики",
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты начала"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":   "success",
-		"analytics": analytics,
-	})
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты окончания"})
+		return
+	}
+
+	stats, err := c.analyticsService.GetIncomeExpenseStats(accountID, startDate, endDate)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, stats)
 }
 
-func (ac *AnalyticsController) GetBalanceForecast(c *gin.Context) {
-	accountID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+// GetBalanceForecast возвращает прогноз баланса
+func (c *AnalyticsController) GetBalanceForecast(ctx *gin.Context) {
+	accountID := ctx.GetUint("account_id")
+	if accountID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Не указан ID счета"})
+		return
+	}
+
+	months := ctx.GetInt("months")
+	if months <= 0 {
+		months = 6 // По умолчанию прогноз на 6 месяцев
+	}
+
+	forecast, err := c.analyticsService.GetBalanceForecast(accountID, months)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Неверный ID счета",
-		})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	days, err := strconv.Atoi(c.DefaultQuery("days", "30"))
-	if err != nil || days < 1 || days > 365 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  "error",
-			"message": "Неверное количество дней",
-		})
+	ctx.JSON(http.StatusOK, forecast)
+}
+
+// GetSpendingCategories возвращает статистику по категориям расходов
+func (c *AnalyticsController) GetSpendingCategories(ctx *gin.Context) {
+	accountID := ctx.GetUint("account_id")
+	if accountID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Не указан ID счета"})
 		return
 	}
 
-	forecast, err := ac.analyticsService.GetBalanceForecast(uint(accountID), days)
+	startDateStr := ctx.Query("start_date")
+	endDateStr := ctx.Query("end_date")
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "error",
-			"message": "Ошибка при получении прогноза",
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты начала"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":   "success",
-		"forecast": forecast,
-	})
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат даты окончания"})
+		return
+	}
+
+	categories, err := c.analyticsService.GetSpendingCategories(accountID, startDate, endDate)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, categories)
 } 

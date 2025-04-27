@@ -103,8 +103,9 @@ func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {
 func (r *Router) RegisterKeyRateRoutes(g *gin.RouterGroup) {
 	userRepo := repository.NewUserRepository(database.DB)
 	authCheckService := service.NewAuthCheckService(userRepo)
-	cbrService := service.NewCbrService()
-	cbrController := NewCbrController(cbrService)
+	externalService := service.NewExternalService("", 0, "", "", "") // Здесь нужно передать реальные параметры SMTP
+	cbrController := NewCbrController(externalService)
+
 	g.GET("", security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
 	}), cbrController.GetKeyRate)
@@ -116,7 +117,7 @@ func (r *Router) RegisterCreditRoutes(g *gin.RouterGroup) {
 		repository.NewCreditRepository(database.DB),
 		repository.AccountRepositoryInstance(database.DB),
 		repository.NewTransactionRepository(database.DB),
-		service.NewCbrService(),
+		service.NewExternalService("", 0, "", "", ""), // Заменяем NewCbrService на NewExternalService
 	)
 	creditController := NewCreditController(creditService)
 
@@ -134,9 +135,11 @@ func (r *Router) RegisterCreditRoutes(g *gin.RouterGroup) {
 }
 
 func (r *Router) RegisterAnalyticsRoutes(g *gin.RouterGroup) {
-	analyticsRepo := repository.NewAnalyticsRepository(database.DB)
+	// analyticsRepo := repository.NewAnalyticsRepository(database.DB)
 	accountRepo := repository.AccountRepositoryInstance(database.DB)
-	analyticsService := service.NewAnalyticsService(analyticsRepo, accountRepo)
+	transactionRepo := repository.NewTransactionRepository(database.DB)
+	creditRepo := repository.NewCreditRepository(database.DB)
+	analyticsService := service.NewAnalyticsService(transactionRepo, accountRepo, creditRepo)
 	analyticsController := NewAnalyticsController(analyticsService)
 
 	analytics := g.Group("/analytics")
