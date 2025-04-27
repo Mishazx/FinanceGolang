@@ -405,52 +405,372 @@ class BankCLI:
         
         input("\nНажмите Enter для продолжения...")
 
+    def deposit(self):
+        if not self.token:
+            self.console.print("[red]Ошибка: Необходима авторизация[/red]")
+            return
+        
+        self.print_header()
+        self.console.print("[bold]Пополнение счета[/bold]")
+        
+        # Получаем список счетов
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/accounts",
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            
+            if response.status_code != 200:
+                self.console.print(f"[red]Ошибка при получении счетов: {response.json().get('message')}[/red]")
+                return
+            
+            accounts = response.json().get('accounts', [])
+            if not accounts:
+                self.console.print("[red]У вас нет доступных счетов[/red]")
+                return
+            
+            # Показываем таблицу счетов
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("ID")
+            table.add_column("Название")
+            table.add_column("Баланс")
+            
+            for account in accounts:
+                table.add_row(
+                    str(account['id']),
+                    account['name'],
+                    str(account['balance'])
+                )
+            
+            self.console.print(table)
+            
+            account_id = Prompt.ask("Выберите ID счета для пополнения")
+            amount = float(Prompt.ask("Введите сумму для пополнения"))
+            description = Prompt.ask("Введите описание операции", default="Пополнение счета")
+            
+            response = requests.post(
+                f"{self.base_url}/api/accounts/{account_id}/deposit",
+                headers={"Authorization": f"Bearer {self.token}"},
+                json={
+                    "amount": amount,
+                    "description": description
+                }
+            )
+            
+            if response.status_code == 200:
+                self.console.print("[green]Счет успешно пополнен![/green]")
+            else:
+                self.console.print(f"[red]Ошибка: {response.json().get('error')}[/red]")
+            
+        except Exception as e:
+            self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+        
+        input("\nНажмите Enter для продолжения...")
+
+    def withdraw(self):
+        if not self.token:
+            self.console.print("[red]Ошибка: Необходима авторизация[/red]")
+            return
+        
+        self.print_header()
+        self.console.print("[bold]Снятие средств[/bold]")
+        
+        # Получаем список счетов
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/accounts",
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            
+            if response.status_code != 200:
+                self.console.print(f"[red]Ошибка при получении счетов: {response.json().get('message')}[/red]")
+                return
+            
+            accounts = response.json().get('accounts', [])
+            if not accounts:
+                self.console.print("[red]У вас нет доступных счетов[/red]")
+                return
+            
+            # Показываем таблицу счетов
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("ID")
+            table.add_column("Название")
+            table.add_column("Баланс")
+            
+            for account in accounts:
+                table.add_row(
+                    str(account['id']),
+                    account['name'],
+                    str(account['balance'])
+                )
+            
+            self.console.print(table)
+            
+            account_id = Prompt.ask("Выберите ID счета для снятия")
+            amount = float(Prompt.ask("Введите сумму для снятия"))
+            description = Prompt.ask("Введите описание операции", default="Снятие средств")
+            
+            response = requests.post(
+                f"{self.base_url}/api/accounts/{account_id}/withdraw",
+                headers={"Authorization": f"Bearer {self.token}"},
+                json={
+                    "amount": amount,
+                    "description": description
+                }
+            )
+            
+            if response.status_code == 200:
+                self.console.print("[green]Средства успешно сняты![/green]")
+            else:
+                self.console.print(f"[red]Ошибка: {response.json().get('error')}[/red]")
+            
+        except Exception as e:
+            self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+        
+        input("\nНажмите Enter для продолжения...")
+
+    def transfer(self):
+        if not self.token:
+            self.console.print("[red]Ошибка: Необходима авторизация[/red]")
+            return
+        
+        self.print_header()
+        self.console.print("[bold]Перевод средств[/bold]")
+        
+        # Получаем список счетов
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/accounts",
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            
+            if response.status_code != 200:
+                self.console.print(f"[red]Ошибка при получении счетов: {response.json().get('message')}[/red]")
+                return
+            
+            accounts = response.json().get('accounts', [])
+            if not accounts:
+                self.console.print("[red]У вас нет доступных счетов[/red]")
+                return
+            
+            # Показываем таблицу счетов
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("ID")
+            table.add_column("Название")
+            table.add_column("Баланс")
+            
+            for account in accounts:
+                table.add_row(
+                    str(account['id']),
+                    account['name'],
+                    str(account['balance'])
+                )
+            
+            self.console.print(table)
+            
+            from_account_id = Prompt.ask("Выберите ID счета для списания")
+            to_account_id = Prompt.ask("Выберите ID счета для зачисления")
+            amount = float(Prompt.ask("Введите сумму для перевода"))
+            description = Prompt.ask("Введите описание операции", default="Перевод средств")
+            
+            response = requests.post(
+                f"{self.base_url}/api/accounts/{from_account_id}/transfer",
+                headers={"Authorization": f"Bearer {self.token}"},
+                json={
+                    "to_account_id": int(to_account_id),
+                    "amount": amount,
+                    "description": description
+                }
+            )
+            
+            if response.status_code == 200:
+                self.console.print("[green]Перевод выполнен успешно![/green]")
+            else:
+                self.console.print(f"[red]Ошибка: {response.json().get('error')}[/red]")
+            
+        except Exception as e:
+            self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+        
+        input("\nНажмите Enter для продолжения...")
+
+    def get_transactions(self):
+        if not self.token:
+            self.console.print("[red]Ошибка: Необходима авторизация[/red]")
+            return
+        
+        self.print_header()
+        self.console.print("[bold]История транзакций[/bold]")
+        
+        # Получаем список счетов
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/accounts",
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            
+            if response.status_code != 200:
+                self.console.print(f"[red]Ошибка при получении счетов: {response.json().get('message')}[/red]")
+                return
+            
+            accounts = response.json().get('accounts', [])
+            if not accounts:
+                self.console.print("[red]У вас нет доступных счетов[/red]")
+                return
+            
+            # Показываем таблицу счетов
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("ID")
+            table.add_column("Название")
+            table.add_column("Баланс")
+            
+            for account in accounts:
+                table.add_row(
+                    str(account['id']),
+                    account['name'],
+                    str(account['balance'])
+                )
+            
+            self.console.print(table)
+            
+            account_id = Prompt.ask("Выберите ID счета для просмотра транзакций")
+            
+            response = requests.get(
+                f"{self.base_url}/api/accounts/{account_id}/transactions",
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            
+            if response.status_code == 200:
+                transactions = response.json().get('transactions', [])
+                if not transactions:
+                    self.console.print("[yellow]Нет транзакций по выбранному счету[/yellow]")
+                    return
+                
+                # Создаем таблицу для отображения транзакций
+                table = Table(show_header=True, header_style="bold magenta")
+                table.add_column("Дата")
+                table.add_column("Тип")
+                table.add_column("Сумма")
+                table.add_column("Описание")
+                table.add_column("Статус")
+                
+                for transaction in transactions:
+                    table.add_row(
+                        transaction['created_at'],
+                        transaction['type'],
+                        str(transaction['amount']),
+                        transaction['description'],
+                        transaction['status']
+                    )
+                
+                self.console.print(table)
+            else:
+                self.console.print(f"[red]Ошибка: {response.json().get('error')}[/red]")
+            
+        except Exception as e:
+            self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+        
+        input("\nНажмите Enter для продолжения...")
+
+    def check_auth(self):
+        if not self.token:
+            return False
+        
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/auth/auth-status",
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            return response.status_code == 200
+        except:
+            return False
+
+    def logout(self):
+        if not self.token:
+            self.console.print("[yellow]Вы не авторизованы[/yellow]")
+            return
+        
+        self.token = None
+        self.user_roles = []
+        self.save_config()
+        self.console.print("[green]Вы успешно вышли из системы[/green]")
+        input("\nНажмите Enter для продолжения...")
+
     def show_menu(self):
         while True:
             self.print_header()
             
-            if self.token:
+            is_authenticated = self.check_auth()
+            
+            if is_authenticated:
                 role_text = ", ".join(self.user_roles) if self.user_roles else "нет ролей"
                 self.console.print(f"[green]Вы авторизованы[/green] (Роли: {role_text})")
             else:
                 self.console.print("[yellow]Вы не авторизованы[/yellow]")
+                self.token = None
+                self.user_roles = []
+                self.save_config()
             
             self.console.print("\n[bold]Меню:[/bold]")
-            self.console.print("1. Регистрация")
-            self.console.print("2. Вход")
-            self.console.print("3. Создать счет")
-            self.console.print("4. Создать карту")
-            self.console.print("5. Мои карты")
             
-            if self.is_admin():
-                self.console.print("6. Управление пользователями")
-                self.console.print("7. Управление ролями")
+            if not is_authenticated:
+                self.console.print("1. Регистрация")
+                self.console.print("2. Вход")
+                self.console.print("0. Завершить программу")
+            else:
+                self.console.print("1. Создать счет")
+                self.console.print("2. Создать карту")
+                self.console.print("3. Мои карты")
+                self.console.print("4. Пополнить счет")
+                self.console.print("5. Снять средства")
+                self.console.print("6. Перевести средства")
+                self.console.print("7. История транзакций")
+                
+                if self.is_admin():
+                    self.console.print("8. Управление пользователями")
+                    self.console.print("9. Управление ролями")
+                
+                self.console.print("l. Выйти из аккаунта")
+                self.console.print("0. Завершить программу")
             
-            self.console.print("0. Выход")
-            
-            choices = ["0", "1", "2", "3", "4", "5"]
-            if self.is_admin():
-                choices.extend(["6", "7"])
+            if not is_authenticated:
+                choices = ["0", "1", "2"]
+            else:
+                choices = ["0", "1", "2", "3", "4", "5", "6", "7", "l"]
+                if self.is_admin():
+                    choices.extend(["8", "9"])
             
             choice = Prompt.ask("Выберите действие", choices=choices)
             
             if choice == "0":
-                if Confirm.ask("Вы уверены, что хотите выйти?"):
+                if Confirm.ask("Вы уверены, что хотите завершить программу?"):
                     sys.exit()
+            elif choice == "l" and is_authenticated:
+                self.logout()
             elif choice == "1":
-                self.register()
+                if is_authenticated:
+                    self.create_account()
+                else:
+                    self.register()
             elif choice == "2":
-                self.login()
-            elif choice == "3":
-                self.create_account()
-            elif choice == "4":
-                self.create_card()
-            elif choice == "5":
-                self.get_all_cards()
-            elif choice == "6" and self.is_admin():
-                self.manage_users()
-            elif choice == "7" and self.is_admin():
-                self.manage_roles()
+                if is_authenticated:
+                    self.create_card()
+                else:
+                    self.login()
+            elif is_authenticated:
+                if choice == "3":
+                    self.get_all_cards()
+                elif choice == "4":
+                    self.deposit()
+                elif choice == "5":
+                    self.withdraw()
+                elif choice == "6":
+                    self.transfer()
+                elif choice == "7":
+                    self.get_transactions()
+                elif choice == "8" and self.is_admin():
+                    self.manage_users()
+                elif choice == "9" and self.is_admin():
+                    self.manage_roles()
 
 if __name__ == "__main__":
     cli = BankCLI()

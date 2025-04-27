@@ -36,5 +36,23 @@ func ConnectDB() (*gorm.DB, error) {
 }
 
 func CreateTables(db *gorm.DB) error {
-	return db.AutoMigrate(&model.User{}, &model.Account{}, &model.Card{}, &model.Role{}, &model.UserRole{})
+	return db.AutoMigrate(&model.User{}, &model.Account{}, &model.Card{}, &model.Role{}, &model.UserRole{}, &model.Transaction{})
+}
+
+func CreateAdmin(db *gorm.DB) error {
+	admin := &model.User{
+		Username: "admin",
+		Password: "admin",
+		Email:    "admin@example.com",
+	}
+
+	adminRole := &model.Role{
+		Name: "admin",
+	}
+
+	userRole := &model.Role{
+		Name: "user",
+	}
+
+	return db.Create(admin).Error
 }

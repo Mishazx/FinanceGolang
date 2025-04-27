@@ -38,6 +38,13 @@ func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
 	accountRepo := repository.AccountRepositoryInstance(database.DB)
 	accountService := service.NewAccountService(accountRepo)
 	accountController := NewAccountController(accountService)
+
+	// Создаем сервис и контроллер для операций со счетами
+	transactionRepo := repository.NewTransactionRepository(database.DB)
+	accountOperationService := service.NewAccountOperationService(accountRepo, transactionRepo)
+	accountOperationController := NewAccountOperationController(accountOperationService)
+
+	// Базовые операции со счетами
 	g.POST("", security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
 	}), accountController.CreateAccount)
@@ -47,6 +54,18 @@ func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
 	g.GET("/all", security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
 	}), accountController.GetAccountsAll)
+
+	// Операции с конкретным счетом
+	accountGroup := g.Group("/:id")
+	accountGroup.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}))
+	{
+		accountGroup.POST("/deposit", accountOperationController.Deposit)
+		accountGroup.POST("/withdraw", accountOperationController.Withdraw)
+		accountGroup.POST("/transfer", accountOperationController.Transfer)
+		accountGroup.GET("/transactions", accountOperationController.GetTransactions)
+	}
 }
 
 func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {
