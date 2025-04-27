@@ -32,6 +32,23 @@ func (r *Router) RegisterAuthRoutes(g *gin.RouterGroup) {
 	}), authController.AuthStatus)
 }
 
+func (r *Router) RegisterUserRoutes(g *gin.RouterGroup) {
+	userRepo := repository.NewUserRepository(database.DB)
+	authCheckService := service.NewAuthCheckService(userRepo)
+	userService := service.NewUserService(userRepo)
+	userController := NewUserController(userService)
+
+	users := g.Group("/users")
+	users.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}))
+	{
+		users.GET("/me", userController.GetCurrentUser)
+		users.PUT("/me", userController.UpdateCurrentUser)
+		users.DELETE("/me", userController.DeleteCurrentUser)
+	}
+}
+
 func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
 	userRepo := repository.NewUserRepository(database.DB)
 	authCheckService := service.NewAuthCheckService(userRepo)
@@ -114,4 +131,57 @@ func (r *Router) RegisterCreditRoutes(g *gin.RouterGroup) {
 		credits.GET("/:id/schedule", creditController.GetPaymentSchedule)
 		credits.POST("/:id/payment", creditController.ProcessPayment)
 	}
+}
+
+func (r *Router) RegisterAnalyticsRoutes(g *gin.RouterGroup) {
+	analyticsRepo := repository.NewAnalyticsRepository(database.DB)
+	accountRepo := repository.AccountRepositoryInstance(database.DB)
+	analyticsService := service.NewAnalyticsService(analyticsRepo, accountRepo)
+	analyticsController := NewAnalyticsController(analyticsService)
+
+	analytics := g.Group("/analytics")
+	analytics.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: service.NewAuthCheckService(repository.NewUserRepository(database.DB)).ValidateUserFromToken,
+	}))
+	{
+		analytics.POST("", analyticsController.GetAnalytics)
+		analytics.GET("/accounts/:id/forecast", analyticsController.GetBalanceForecast)
+	}
+}
+
+func (r *Router) RegisterAccountOperationRoutes(g *gin.RouterGroup) {
+	userRepo := repository.NewUserRepository(database.DB)
+	authCheckService := service.NewAuthCheckService(userRepo)
+	accountRepo := repository.AccountRepositoryInstance(database.DB)
+	transactionRepo := repository.NewTransactionRepository(database.DB)
+	accountOperationService := service.NewAccountOperationService(accountRepo, transactionRepo)
+	accountOperationController := NewAccountOperationController(accountOperationService)
+
+	accounts := g.Group("/accounts")
+	accounts.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
+	}))
+	{
+		accounts.POST("/:id/deposit", accountOperationController.Deposit)
+		accounts.POST("/:id/withdraw", accountOperationController.Withdraw)
+		accounts.POST("/:id/transfer", accountOperationController.Transfer)
+		accounts.GET("/:id/transactions", accountOperationController.GetTransactions)
+	}
+}
+
+func (r *Router) InitRoutes() *gin.Engine {
+	router := gin.Default()
+	
+	api := router.Group("/api")
+	{
+		r.RegisterAuthRoutes(api)
+		r.RegisterUserRoutes(api)
+		r.RegisterAccountRoutes(api)
+		r.RegisterCardRoutes(api)
+		r.RegisterAccountOperationRoutes(api)
+		r.RegisterCreditRoutes(api)
+		r.RegisterAnalyticsRoutes(api)
+	}
+	
+	return router
 }

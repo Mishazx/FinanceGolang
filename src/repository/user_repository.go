@@ -10,6 +10,10 @@ import (
 
 type UserRepository interface {
 	CreateUser(user *model.User) error
+	GetUserByUsername(username string) (*model.User, error)
+	GetUserByID(id uint) (*model.User, error)
+	UpdateUser(user *model.User) error
+	DeleteUser(id uint) error
 	FindUserByUsername(username string) (*model.User, error)
 	FindUserByUsernameWithoutPassword(username string) (*dto.UserResponse, error)
 }
@@ -24,6 +28,38 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 func (r *userRepo) CreateUser(user *model.User) error {
 	return r.db.Create(user).Error
+}
+
+func (r *userRepo) GetUserByUsername(username string) (*model.User, error) {
+	var user model.User
+	err := r.db.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepo) GetUserByID(id uint) (*model.User, error) {
+	var user model.User
+	err := r.db.First(&user, id).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepo) UpdateUser(user *model.User) error {
+	return r.db.Save(user).Error
+}
+
+func (r *userRepo) DeleteUser(id uint) error {
+	return r.db.Delete(&model.User{}, id).Error
 }
 
 func (r *userRepo) FindUserByUsername(username string) (*model.User, error) {
