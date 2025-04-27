@@ -20,6 +20,9 @@ class Storage:
         if key in self.data:
             del self.data[key]
 
+    def get_all(self):
+        return self.data
+
 
 class QuietTestResult(unittest.TextTestResult):
     def addError(self, test, err):

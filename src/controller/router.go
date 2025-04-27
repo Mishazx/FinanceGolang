@@ -45,3 +45,9 @@ func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {
 	// g.GET(":id", security.AuthMiddleware(), cardController.GetCardByID)
 	g.GET("", security.AuthMiddleware(), cardController.GetAllCards)
 }
+
+func (r *Router) RegisterKeyRateRoutes(g *gin.RouterGroup) {
+	cbrService := service.NewCbrService()
+	cbrController := NewCbrController(cbrService)
+	g.GET("", security.AuthMiddleware(), cbrController.GetKeyRate)
+}

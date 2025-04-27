@@ -19,6 +19,9 @@ func main() {
 	router.RegisterAuthRoutes(r.Group("/api/auth"))
 	router.RegisterAccountRoutes(r.Group("/api/accounts"))
 	router.RegisterCardRoutes(r.Group("/api/cards"))
+	router.RegisterKeyRateRoutes(r.Group("/api/key-rate"))
+
+	// router.
 
 	r.Run(":8080")
 }

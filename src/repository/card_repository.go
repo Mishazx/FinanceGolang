@@ -10,7 +10,7 @@ import (
 )
 
 type CardRepository interface {
-	CreateCard(card *model.Card, publicKey string, hmacSecret []byte) error
+	CreateCard(card *model.Card, publicKey string, hmacSecret []byte) (*model.Card, error)
 	GetAllCards() ([]model.Card, error)
 	GetCardByID(id uint) (*model.Card, error)
 	UpdateCard(card *model.Card) error
@@ -28,17 +28,17 @@ func CardRepositoryInstance(db *gorm.DB) CardRepository {
 }
 
 // CreateCard implements CardRepository.
-func (c *cardRepo) CreateCard(card *model.Card, publicKey string, hmacSecret []byte) error {
+func (c *cardRepo) CreateCard(card *model.Card, publicKey string, hmacSecret []byte) (*model.Card, error) {
 	// Шифрование номера карты и срока действия
 	fmt.Printf("PublicKey: %s\n", publicKey)
 	encryptedNumber, err := security.EncryptData(card.Number)
 	fmt.Printf("Encrypted Number: %s\n", encryptedNumber)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	encryptedExpiryDate, err := security.EncryptData(card.ExpiryDate)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Генерация HMAC для CVV
@@ -51,10 +51,10 @@ func (c *cardRepo) CreateCard(card *model.Card, publicKey string, hmacSecret []b
 
 	// Сохранение карты в базе данных
 	if err := c.db.Create(card).Error; err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return card, nil
 }
 
 // func GenerateHMAC(s string, hmacSecret []byte) string {

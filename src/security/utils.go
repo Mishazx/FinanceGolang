@@ -35,18 +35,13 @@ func EncryptData(data string) (string, error) {
 		return "", fmt.Errorf("error reading public key file: %v", err)
 	}
 
-	fmt.Println("EncryptData: publicKey length:", len(publicKey))
-	fmt.Println("EncryptData: publicKey:", string(publicKey))
-
 	entityList, err := openpgp.ReadArmoredKeyRing(strings.NewReader(string(publicKey)))
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("entityList:", entityList)
 
 	var buf bytes.Buffer
 	writer, err := armor.Encode(&buf, "PGP MESSAGE", nil)
-	fmt.Println("writer: ", writer)
 	if err != nil {
 		return "", err
 	}

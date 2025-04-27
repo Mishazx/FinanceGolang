@@ -3,6 +3,7 @@ package controller
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/service"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,27 @@ func NewCardController(cardService service.CardService) *CardController {
 }
 
 func (cc *CardController) CreateCard(c *gin.Context) {
+	// Печатаем все поля из контекста
+
+	fmt.Println("START !!! ------------")
+
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "user not found"})
+		return
+	}
+
+	fmt.Println("userID: ", userID)
+
+	fmt.Println("Request URL:", c.Request.URL.String())
+	for key, values := range c.Request.URL.Query() {
+		for _, value := range values {
+			fmt.Printf("%s: %s\n", key, value)
+		}
+	}
+
+	fmt.Println("END !!! ------------")
+
 	var card model.Card
 	if err := c.ShouldBindJSON(&card); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -25,7 +47,8 @@ func (cc *CardController) CreateCard(c *gin.Context) {
 		})
 		return
 	}
-	if err := cc.cardService.CreateCard(&card); err != nil {
+	unsecureCard, err := cc.cardService.CreateCard(&card)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  err.Error(),
 			"message": "could not create card",
@@ -35,6 +58,7 @@ func (cc *CardController) CreateCard(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"status":  "success",
 		"message": "card created successfully",
+		"card":    unsecureCard,
 	})
 }
 
