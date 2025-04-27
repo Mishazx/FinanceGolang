@@ -92,3 +92,26 @@ func (r *Router) RegisterKeyRateRoutes(g *gin.RouterGroup) {
 		ValidateUserFromToken: authCheckService.ValidateUserFromToken,
 	}), cbrController.GetKeyRate)
 }
+
+// Кредитные операции
+func (r *Router) RegisterCreditRoutes(g *gin.RouterGroup) {
+	creditService := service.NewCreditService(
+		repository.NewCreditRepository(database.DB),
+		repository.AccountRepositoryInstance(database.DB),
+		repository.NewTransactionRepository(database.DB),
+		service.NewCbrService(),
+	)
+	creditController := NewCreditController(creditService)
+
+	credits := g.Group("/credits")
+	credits.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: service.NewAuthCheckService(repository.NewUserRepository(database.DB)).ValidateUserFromToken,
+	}))
+	{
+		credits.POST("", creditController.CreateCredit)
+		credits.GET("", creditController.GetUserCredits)
+		credits.GET("/:id", creditController.GetCreditByID)
+		credits.GET("/:id/schedule", creditController.GetPaymentSchedule)
+		credits.POST("/:id/payment", creditController.ProcessPayment)
+	}
+}

@@ -46,12 +46,16 @@ func CreateAdmin(db *gorm.DB) error {
 		Email:    "admin@example.com",
 	}
 
-	adminRole := &model.Role{
-		Name: "admin",
+	// Создаем роли, если их нет
+	adminRole := model.Role{Name: "admin", Description: "Администратор системы"}
+	userRole := model.Role{Name: "user", Description: "Обычный пользователь"}
+
+	if err := db.FirstOrCreate(&adminRole, model.Role{Name: "admin"}).Error; err != nil {
+		log.Fatalf("Failed to create admin role: %v", err)
 	}
 
-	userRole := &model.Role{
-		Name: "user",
+	if err := db.FirstOrCreate(&userRole, model.Role{Name: "user"}).Error; err != nil {
+		log.Fatalf("Failed to create user role: %v", err)
 	}
 
 	return db.Create(admin).Error

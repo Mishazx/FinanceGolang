@@ -30,6 +30,7 @@ func main() {
 	router.RegisterAccountRoutes(r.Group("/api/accounts"))
 	router.RegisterCardRoutes(r.Group("/api/cards"))
 	router.RegisterKeyRateRoutes(r.Group("/api/key-rate"))
+	router.RegisterCreditRoutes(r.Group("/api/credits"))
 
 	// router.
 
