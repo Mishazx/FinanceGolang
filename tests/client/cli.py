@@ -460,6 +460,11 @@ class BankCLI:
 
         if response.status_code == 200:
             transactions = response.json().get("transactions", [])
+            if not transactions:
+                self.console.print("[yellow]Нет транзакций по выбранному счету[/yellow]")
+                input("\nНажмите Enter для продолжения...")
+                return
+
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("Дата")
             table.add_column("Тип")
@@ -468,10 +473,18 @@ class BankCLI:
             table.add_column("Статус")
             
             for transaction in transactions:
+                # Форматируем сумму с учетом типа транзакции
+                amount = float(transaction["amount"])
+                formatted_amount = f"{abs(amount):.2f} ₽"
+                if transaction["type"] == "withdrawal" or (transaction["type"] == "transfer" and transaction["from_account_id"] == int(account_id)):
+                    formatted_amount = f"-{formatted_amount}"
+                else:
+                    formatted_amount = f"+{formatted_amount}"
+
                 table.add_row(
                     transaction["created_at"],
                     transaction["type"],
-                    str(transaction["amount"]),
+                    formatted_amount,
                     transaction["description"],
                     transaction["status"]
                 )
@@ -479,6 +492,8 @@ class BankCLI:
             self.console.print(table)
         else:
             self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
+        
+        input("\nНажмите Enter для продолжения...")
 
     def check_auth(self):
         if not self.token:
@@ -726,6 +741,10 @@ class BankCLI:
 
         if response.status_code == 200:
             accounts = response.json().get("accounts", [])
+            if not accounts:
+                self.console.print("[yellow]У вас пока нет счетов[/yellow]")
+                return
+
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("ID")
             table.add_column("Название")
@@ -741,6 +760,8 @@ class BankCLI:
             self.console.print(table)
         else:
             self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
+        
+        input("\nНажмите Enter для продолжения...")
 
     def show_menu(self):
         while True:
