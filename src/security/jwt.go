@@ -4,7 +4,8 @@ import (
 	"FinanceGolang/src/model"
 	"errors"
 	"fmt"
-	"log"
+
+	// "fmt"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -86,7 +87,7 @@ func AuthMiddleware(deps AuthMiddlewareDeps) gin.HandlerFunc {
 
 		tokenString, _ = CutToken(tokenString)
 
-		log.Printf("Received token: %s", tokenString)
+		// log.Printf("Received token: %s", tokenString)
 
 		// Проверяем токен и получаем пользователя
 		user, err := deps.ValidateUserFromToken(tokenString)

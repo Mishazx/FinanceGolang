@@ -32,3 +32,8 @@ Thumbs.db
 # Python
 __pycache__/
 *.py[cod]
+
+# data and keys
+bank_config.json
+private_key.asc
+public_key.asc

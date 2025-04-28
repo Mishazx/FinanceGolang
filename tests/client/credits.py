@@ -51,34 +51,47 @@ class CreditManager:
             account_id = Prompt.ask("Выберите ID счета для получения кредита")
             amount = float(Prompt.ask("Введите сумму кредита"))
             term_months = int(Prompt.ask("Введите срок кредита в месяцах"))
-            description = Prompt.ask("Введите описание кредита", default="Потребительский кредит")
+            description = str(Prompt.ask("Введите описание кредита", default="Потребительский кредит"))
             
-            response = requests.post(
-                f"{self.base_url}/api/credits",
-                headers={"Authorization": f"Bearer {self.token}"},
-                json={
-                    "account_id": int(account_id),
-                    "amount": amount,
-                    "term_months": term_months,
-                    "description": description
-                }
-            )
+            # Создаем JSON для отправки
+            json_data = {
+                "account_id": int(account_id),
+                "amount": amount,
+                "term_months": term_months,
+                "description": description
+            }
             
-            if response.status_code == 201:
-                credit_data = response.json().get('credit', {})
-                self.console.print("[green]Кредит успешно оформлен![/green]")
+            # Выводим информацию о JSON для отладки
+            self.console.print(f"[bold]Отправляемые данные:[/bold] {json_data}")
+            
+            try:
+                response = requests.post(
+                    f"{self.base_url}/api/credits/credits",
+                    headers={"Authorization": f"Bearer {self.token}"},
+                    json=json_data
+                )
                 
-                # Показываем информацию о кредите
-                credit_table = Table(show_header=True, header_style="bold green")
-                credit_table.add_column("Поле")
-                credit_table.add_column("Значение")
-                
-                for key, value in credit_data.items():
-                    credit_table.add_row(key, str(value))
-                
-                self.console.print(credit_table)
-            else:
-                self.console.print(f"[red]Ошибка: {response.json().get('error')}[/red]")
+                if response.status_code == 201:
+                    credit_data = response.json().get('credit', {})
+                    self.console.print("[green]Кредит успешно оформлен![/green]")
+                    
+                    # Показываем информацию о кредите
+                    credit_table = Table(show_header=True, header_style="bold green")
+                    credit_table.add_column("Поле")
+                    credit_table.add_column("Значение")
+                    
+                    for key, value in credit_data.items():
+                        credit_table.add_row(key, str(value))
+                    
+                    self.console.print(credit_table)
+                else:
+                    # Отображаем детальную информацию об ошибке
+                    error_text = response.text
+                    self.console.print(f"[red]Статус код: {response.status_code}[/red]")
+                    self.console.print(f"[red]Ответ сервера: {error_text}[/red]")
+                    
+            except Exception as e:
+                self.console.print(f"[red]Ошибка: {str(e)}[/red]")
             
         except Exception as e:
             self.console.print(f"[red]Ошибка: {str(e)}[/red]")

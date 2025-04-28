@@ -5,7 +5,7 @@ import (
 
 	"log"
 
-	"gorm.io/driver/sqlite" // Или другой драйвер для вашей базы данных
+	"github.com/glebarez/sqlite" // Заменили импорт на pure Go реализацию
 	"gorm.io/gorm"
 )
 

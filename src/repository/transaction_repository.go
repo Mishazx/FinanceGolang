@@ -3,8 +3,9 @@ package repository
 import (
 	"FinanceGolang/src/model"
 	// "errors"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type TransactionRepository interface {
@@ -30,7 +31,9 @@ func (r *transactionRepo) CreateTransaction(transaction *model.Transaction) erro
 
 func (r *transactionRepo) GetTransactionsByAccountID(accountID uint, startDate, endDate time.Time) ([]model.Transaction, error) {
 	var transactions []model.Transaction
-	err := r.db.Where("account_id = ? AND created_at BETWEEN ? AND ?", accountID, startDate, endDate).
+	err := r.db.Where("(from_account_id = ? OR to_account_id = ?) AND created_at BETWEEN ? AND ?",
+		accountID, accountID, startDate, endDate).
+		Order("created_at DESC").
 		Find(&transactions).Error
 	return transactions, err
 }
@@ -50,4 +53,4 @@ func (r *transactionRepo) GetTransactionsByUserID(userID uint) ([]model.Transact
 		return nil, err
 	}
 	return transactions, nil
-} 
+}

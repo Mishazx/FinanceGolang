@@ -40,12 +40,18 @@ func (c *CreditController) CreateCredit(ctx *gin.Context) {
 		return
 	}
 
+	// Дополнительная обработка - убеждаемся, что description всегда строка
+	description := req.Description
+	if description == "" {
+		description = "Потребительский кредит"
+	}
+
 	credit, err := c.creditService.CreateCredit(
 		userID.(uint),
 		req.AccountID,
 		req.Amount,
 		req.TermMonths,
-		req.Description,
+		description,
 	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -128,4 +134,4 @@ func (c *CreditController) ProcessPayment(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "payment processed successfully"})
-} 
+}

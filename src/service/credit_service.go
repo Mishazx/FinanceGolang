@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
 	// "strconv"
 	"time"
 )
@@ -20,10 +21,10 @@ type CreditService interface {
 }
 
 type creditService struct {
-	creditRepo     repository.CreditRepository
-	accountRepo    repository.AccountRepository
+	creditRepo      repository.CreditRepository
+	accountRepo     repository.AccountRepository
 	transactionRepo repository.TransactionRepository
-	keyRateService *ExternalService
+	keyRateService  *ExternalService
 }
 
 func NewCreditService(
@@ -33,10 +34,10 @@ func NewCreditService(
 	keyRateService *ExternalService,
 ) CreditService {
 	return &creditService{
-		creditRepo:     creditRepo,
-		accountRepo:    accountRepo,
+		creditRepo:      creditRepo,
+		accountRepo:     accountRepo,
 		transactionRepo: transactionRepo,
-		keyRateService: keyRateService,
+		keyRateService:  keyRateService,
 	}
 }
 
@@ -63,6 +64,9 @@ func (s *creditService) CreateCredit(userID uint, accountID uint, amount float64
 	monthlyRate := interestRate / 12 / 100
 	monthlyPayment := amount * (monthlyRate * math.Pow(1+monthlyRate, float64(termMonths))) / (math.Pow(1+monthlyRate, float64(termMonths)) - 1)
 
+	// Гарантируем, что description - это строка
+	descStr := fmt.Sprintf("%v", description)
+
 	// Создаем кредит
 	credit := &model.Credit{
 		UserID:         userID,
@@ -74,12 +78,31 @@ func (s *creditService) CreateCredit(userID uint, accountID uint, amount float64
 		Status:         model.CreditStatusActive,
 		StartDate:      time.Now(),
 		EndDate:        time.Now().AddDate(0, termMonths, 0),
-		Description:    description,
+		Description:    descStr,
 	}
 
 	// Сохраняем кредит
 	if err := s.creditRepo.CreateCredit(credit); err != nil {
 		return nil, fmt.Errorf("failed to create credit: %v", err)
+	}
+
+	// Зачисляем сумму кредита на счет пользователя
+	account.Balance += amount
+	if err := s.accountRepo.UpdateAccount(account); err != nil {
+		return nil, fmt.Errorf("failed to update account balance: %v", err)
+	}
+
+	// Создаем транзакцию о зачислении кредита
+	transaction := &model.Transaction{
+		Type:        model.TransactionTypeCredit,
+		ToAccountID: int(accountID),
+		Amount:      amount,
+		Description: fmt.Sprintf("Зачисление по кредиту #%d: %s", credit.ID, descStr),
+		CreatedAt:   time.Now(),
+		Status:      "completed",
+	}
+	if err := s.transactionRepo.CreateTransaction(transaction); err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %v", err)
 	}
 
 	// Создаем график платежей
@@ -252,4 +275,4 @@ func (s *creditService) ProcessOverduePayments() error {
 	}
 
 	return nil
-} 
+}

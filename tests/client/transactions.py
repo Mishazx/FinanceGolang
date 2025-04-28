@@ -46,9 +46,22 @@ class TransactionManager:
                 else:
                     formatted_amount = f"+{formatted_amount}"
 
+                # Преобразуем тип транзакции для отображения
+                transaction_type = transaction["type"]
+                if transaction_type == "deposit":
+                    display_type = "Пополнение"
+                elif transaction_type == "withdrawal":
+                    display_type = "Снятие"
+                elif transaction_type == "transfer":
+                    display_type = "Перевод"
+                elif transaction_type == "credit":
+                    display_type = "Оформление кредита"
+                else:
+                    display_type = transaction_type
+
                 table.add_row(
                     transaction["created_at"],
-                    transaction["type"],
+                    display_type,
                     formatted_amount,
                     transaction["description"],
                     transaction["status"]
