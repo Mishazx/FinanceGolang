@@ -5,6 +5,7 @@ import (
 	"FinanceGolang/src/service"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,6 +18,24 @@ func NewAccountController(accountService service.AccountService) *AccountControl
 	return &AccountController{accountService: accountService}
 }
 
+// Структуры запросов
+type DepositRequest struct {
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+	Description string  `json:"description"`
+}
+
+type WithdrawRequest struct {
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+	Description string  `json:"description"`
+}
+
+type TransferRequest struct {
+	ToAccountID uint    `json:"to_account_id" binding:"required"`
+	Amount      float64 `json:"amount" binding:"required,gt=0"`
+	Description string  `json:"description"`
+}
+
+// Базовые операции со счетом
 func (h *AccountController) CreateAccount(c *gin.Context) {
 	var account model.Account
 	if err := c.ShouldBindJSON(&account); err != nil {
@@ -39,11 +58,11 @@ func (h *AccountController) CreateAccount(c *gin.Context) {
 		"account": account,
 	})
 }
+
 func (h *AccountController) GetAccountByUserID(c *gin.Context) {
 	userID, exists := c.MustGet("userID").(uint)
 
 	fmt.Println("UserID from context:", userID)
-
 	fmt.Println("UserID exists:", exists)
 
 	account, err := h.accountService.GetAccountByUserID(userID)
@@ -90,4 +109,109 @@ func (h *AccountController) GetAccountsAll(c *gin.Context) {
 		"status":   "success",
 		"accounts": accounts,
 	})
+}
+
+// Операции с балансом
+func (h *AccountController) Deposit(c *gin.Context) {
+	accountIDStr := c.Param("id")
+	if accountIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "account ID is required"})
+		return
+	}
+
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account ID"})
+		return
+	}
+
+	var req DepositRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.accountService.Deposit(uint(accountID), req.Amount, req.Description); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "deposit successful"})
+}
+
+func (h *AccountController) Withdraw(c *gin.Context) {
+	accountIDStr := c.Param("id")
+	if accountIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "account ID is required"})
+		return
+	}
+
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account ID"})
+		return
+	}
+
+	var req WithdrawRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.accountService.Withdraw(uint(accountID), req.Amount, req.Description); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "withdrawal successful"})
+}
+
+func (h *AccountController) Transfer(c *gin.Context) {
+	fromAccountIDStr := c.Param("id")
+	if fromAccountIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "account ID is required"})
+		return
+	}
+
+	fromAccountID, err := strconv.ParseUint(fromAccountIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account ID"})
+		return
+	}
+
+	var req TransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.accountService.Transfer(uint(fromAccountID), req.ToAccountID, req.Amount, req.Description); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "transfer successful"})
+}
+
+// Операции с транзакциями
+func (h *AccountController) GetTransactions(c *gin.Context) {
+	accountIDStr := c.Param("id")
+	if accountIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "account ID is required"})
+		return
+	}
+
+	accountID, err := strconv.ParseUint(accountIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account ID"})
+		return
+	}
+
+	transactions, err := h.accountService.GetTransactions(uint(accountID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"transactions": transactions})
 }

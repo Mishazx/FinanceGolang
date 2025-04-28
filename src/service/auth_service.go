@@ -6,8 +6,10 @@ import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
 	"FinanceGolang/src/security"
+
 	// "FinanceGolang/src/token"
 	"fmt"
+	"log"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -19,6 +21,7 @@ type AuthService interface {
 	AuthStatus(token string) (bool, error)
 	GetUserByUsername(username string) (*model.User, error)
 	GetUserByUsernameWithoutPassword(username string) (*dto.UserResponse, error)
+	ValidateUserFromToken(tokenString string) (*model.User, error)
 }
 
 type authService struct {
@@ -116,4 +119,24 @@ func (s *authService) AuthStatus(token string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (s *authService) ValidateUserFromToken(tokenString string) (*model.User, error) {
+	claims, err := security.ParseToken(tokenString)
+	if err != nil {
+		return nil, fmt.Errorf("invalid token: %v", err)
+	}
+
+	user, err := s.userRepo.FindUserByUsername(claims.Username)
+	if err != nil {
+		log.Printf("No valid auth token, user not found: %v", err)
+		return nil, fmt.Errorf("No valid auth token, user not found")
+	}
+
+	if user.ID != claims.UserID {
+		log.Printf("No valid auth token, invalid user: %v", err)
+		return nil, fmt.Errorf("No valid auth token, invalid user")
+	}
+
+	return user, nil
 }
