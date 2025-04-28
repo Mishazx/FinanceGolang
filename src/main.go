@@ -6,33 +6,59 @@ import (
 	"FinanceGolang/src/repository"
 	"FinanceGolang/src/service"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	database.InitDatabase()
-
-	database.CreateTables(database.DB)
-
-	// Инициализация ролей
-	roleRepo := repository.NewRoleRepository(database.DB)
-	roleService := service.NewRoleService(roleRepo)
-	if err := roleService.InitializeDefaultRoles(); err != nil {
-		log.Fatalf("Failed to initialize roles: %v", err)
+	// Инициализация базы данных
+	if err := database.InitDB(); err != nil {
+		log.Fatalf("Ошибка инициализации базы данных: %v", err)
 	}
+	defer database.CloseDB()
 
+	// Инициализация репозиториев
+	roleRepo := repository.NewRoleRepository(database.DB)
+	userRepo := repository.NewUserRepository(database.DB)
+	accountRepo := repository.NewAccountRepository(database.DB)
+	cardRepo := repository.NewCardRepository(database.DB)
+	transactionRepo := repository.NewTransactionRepository(database.DB)
+	creditRepo := repository.NewCreditRepository(database.DB)
+
+	// Инициализация сервисов
+	roleService := service.NewRoleService(roleRepo)
+	userService := service.NewUserService(userRepo)
+	accountService := service.NewAccountService(accountRepo)
+	cardService := service.NewCardService(cardRepo)
+	transactionService := service.NewTransactionService(transactionRepo)
+	creditService := service.NewCreditService(creditRepo)
+
+	// Инициализация контроллеров
+	router := controller.NewRouter(
+		userService,
+		roleService,
+		accountService,
+		cardService,
+		transactionService,
+		creditService,
+	)
+
+	// Настройка Gin
 	r := gin.Default()
 
-	router := controller.NewRouter()
-
+	// Регистрация маршрутов
 	router.RegisterAuthRoutes(r.Group("/api/auth"))
 	router.RegisterAccountRoutes(r.Group("/api/accounts"))
 	router.RegisterCardRoutes(r.Group("/api/cards"))
-	router.RegisterKeyRateRoutes(r.Group("/api/key-rate"))
+	router.RegisterTransactionRoutes(r.Group("/api/transactions"))
 	router.RegisterCreditRoutes(r.Group("/api/credits"))
+	router.RegisterAdminRoutes(r.Group("/api/admin"))
 
-	// router.
-
-	r.Run(":8080")
+	// Запуск сервера
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	r.Run(":" + port)
 }

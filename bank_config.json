@@ -1,1 +1,13 @@
-{"token": null, "roles": []}
+{
+    "database": {
+        "host": "postgres",
+        "port": 5432,
+        "user": "postgres",
+        "password": "postgres",
+        "dbname": "bank",
+        "sslmode": "disable"
+    },
+    "server": {
+        "port": 8080
+    }
+}

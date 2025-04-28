@@ -8,18 +8,6 @@
 pip install -r requirements.txt
 ```
 
-## Настройка
-
-1. Создайте файл `config.json` в директории с клиентом:
-```json
-{
-    "api_url": "http://localhost:8080",
-    "token": ""
-}
-```
-
-2. Замените `http://localhost:8080` на URL вашего API сервера
-
 ## Использование
 
 Запустите клиент:
