@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+
 	// "strings"
 	"time"
 
@@ -127,7 +128,8 @@ func (s *ExternalService) GetKeyRate() (float64, error) {
 
 	// Парсим XML
 	var data KeyRateEnvelope
-	if err := xml.Unmarshal(body, &data); err != nil {
+	unmarshalErr := xml.Unmarshal(body, &data)
+	if unmarshalErr != nil {
 		return 0, fmt.Errorf("ошибка при парсинге XML: %v", err)
 	}
 
@@ -173,4 +175,4 @@ func (s *ExternalService) SendPaymentNotification(email, paymentType string, amo
 	`, paymentType, amount, time.Now().Format("02.01.2006 15:04:05"))
 
 	return s.SendEmail(email, subject, body)
-} 
+}

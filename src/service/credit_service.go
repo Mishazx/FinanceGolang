@@ -27,7 +27,7 @@ type creditService struct {
 	keyRateService  *ExternalService
 }
 
-func NewCreditService(
+func CreditServiceInstance(
 	creditRepo repository.CreditRepository,
 	accountRepo repository.AccountRepository,
 	transactionRepo repository.TransactionRepository,

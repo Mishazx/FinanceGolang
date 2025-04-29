@@ -68,36 +68,36 @@ func NewRouter() *Router {
 
 // createAuthService создает сервис аутентификации
 func (r *Router) createAuthService() service.AuthService {
-	userRepo := repository.NewUserRepository(database.DB)
-	return service.NewAuthService(userRepo)
+	userRepo := repository.UserRepositoryInstance(database.DB)
+	return service.AuthServiceInstance(userRepo)
 }
 
 // createUserService создает сервис пользователей
 func (r *Router) createUserService() service.UserService {
-	userRepo := repository.NewUserRepository(database.DB)
-	return service.NewUserService(userRepo)
+	userRepo := repository.UserRepositoryInstance(database.DB)
+	return service.UserServiceInstance(userRepo)
 }
 
 // createAccountService создает сервис счетов
 func (r *Router) createAccountService() service.AccountService {
 	accountRepo := repository.AccountRepositoryInstance(database.DB)
-	transactionRepo := repository.NewTransactionRepository(database.DB)
-	return service.NewAccountService(accountRepo, transactionRepo)
+	transactionRepo := repository.TransactionRepositoryInstance(database.DB)
+	return service.AccountServiceInstance(accountRepo, transactionRepo)
 }
 
 // createCardService создает сервис карт
 func (r *Router) createCardService() service.CardService {
 	cardRepo := repository.CardRepositoryInstance(database.DB)
 	accountRepo := repository.AccountRepositoryInstance(database.DB)
-	return service.NewCardService(cardRepo, accountRepo, "defaultString", []byte("defaultBytes"))
+	return service.CardServiceInstance(cardRepo, accountRepo, "defaultString", []byte("defaultBytes"))
 }
 
 // createCreditService создает сервис кредитов
 func (r *Router) createCreditService() service.CreditService {
-	return service.NewCreditService(
-		repository.NewCreditRepository(database.DB),
+	return service.CreditServiceInstance(
+		repository.CreditRepositoryInstance(database.DB),
 		repository.AccountRepositoryInstance(database.DB),
-		repository.NewTransactionRepository(database.DB),
+		repository.TransactionRepositoryInstance(database.DB),
 		service.NewExternalService("", 0, "", "", ""),
 	)
 }
@@ -105,8 +105,8 @@ func (r *Router) createCreditService() service.CreditService {
 // createAnalyticsService создает сервис аналитики
 func (r *Router) createAnalyticsService() *service.AnalyticsService {
 	accountRepo := repository.AccountRepositoryInstance(database.DB)
-	transactionRepo := repository.NewTransactionRepository(database.DB)
-	creditRepo := repository.NewCreditRepository(database.DB)
+	transactionRepo := repository.TransactionRepositoryInstance(database.DB)
+	creditRepo := repository.CreditRepositoryInstance(database.DB)
 	return service.NewAnalyticsService(transactionRepo, accountRepo, creditRepo)
 }
 
@@ -255,17 +255,17 @@ func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
 	accountService := r.createAccountService()
 	accountController := NewAccountController(accountService)
 
-	g.POST("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+	g.POST(APIPathAccounts, security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
 	}), accountController.CreateAccount)
-	g.GET("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+	g.GET(APIPathAccounts, security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
 	}), accountController.GetAccountByUserID)
-	g.GET(APIPathAll, security.AuthMiddleware(security.AuthMiddlewareDeps{
+	g.GET(APIPathAccounts+APIPathAll, security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
 	}), accountController.GetAccountsAll)
 
-	accountGroup := g.Group("/:id")
+	accountGroup := g.Group(APIPathAccounts + "/:id")
 	accountGroup.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
 	}))
@@ -283,10 +283,10 @@ func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {
 	cardService := r.createCardService()
 	cardController := NewCardController(cardService)
 
-	g.POST("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+	g.POST(APIPathCards, security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
 	}), cardController.CreateCard)
-	g.GET("", security.AuthMiddleware(security.AuthMiddlewareDeps{
+	g.GET(APIPathCards, security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
 	}), cardController.GetAllCards)
 }

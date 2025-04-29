@@ -19,11 +19,27 @@ func NewHandler(db *gorm.DB) *Handler {
 	return &Handler{DB: db}
 }
 
-func InitDatabase() {
+// InitDB - инициализирует соединение с базой данных
+func InitDB() error {
 	var err error
 	DB, err = gorm.Open(sqlite.Open("test.db"), &gorm.Config{}) // Укажите вашу базу данных
 	if err != nil {
-		log.Fatalf("failed to connect to the database: %v", err)
+		return err
+	}
+	return nil
+}
+
+// CloseDB - закрывает соединение с базой данных
+func CloseDB() {
+	if DB != nil {
+		db, err := DB.DB()
+		if err != nil {
+			log.Printf("Ошибка при получении соединения с базой данных: %v", err)
+			return
+		}
+		if err := db.Close(); err != nil {
+			log.Printf("Ошибка при закрытии соединения с базой данных: %v", err)
+		}
 	}
 }
 
@@ -37,13 +53,13 @@ func ConnectDB() (*gorm.DB, error) {
 
 func CreateTables(db *gorm.DB) error {
 	return db.AutoMigrate(
-		&model.User{}, 
-		&model.Account{}, 
-		&model.Card{}, 
-		&model.Role{}, 
-		&model.UserRole{}, 
-		&model.Transaction{}, 
-		&model.Credit{}, 
+		&model.User{},
+		&model.Account{},
+		&model.Card{},
+		&model.Role{},
+		&model.UserRole{},
+		&model.Transaction{},
+		&model.Credit{},
 		&model.PaymentSchedule{},
 		&model.Analytics{},
 		&model.BalanceForecast{},

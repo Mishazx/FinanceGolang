@@ -17,18 +17,16 @@ type CardService interface {
 }
 
 type cardService struct {
-	cardRepo   repository.CardRepository
+	cardRepo    repository.CardRepository
 	accountRepo repository.AccountRepository
-	publicKey  string
-	hmacSecret []byte
+	publicKey   string
+	hmacSecret  []byte
 }
 
-func NewCardService(cardRepo repository.CardRepository, accountRepo repository.AccountRepository, publicKey string, hmacSecret []byte) CardService {
+func CardServiceInstance(cardRepo repository.CardRepository, accountRepo repository.AccountRepository, publicKey string, hmacSecret []byte) CardService {
 	return &cardService{
-		cardRepo:   cardRepo,
+		cardRepo:    cardRepo,
 		accountRepo: accountRepo,
-		publicKey:  publicKey,
-		hmacSecret: hmacSecret,
 	}
 }
 

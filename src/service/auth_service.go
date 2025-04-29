@@ -29,10 +29,10 @@ type authService struct {
 	roleRepo repository.RoleRepository
 }
 
-func NewAuthService(userRepo repository.UserRepository) AuthService {
+func AuthServiceInstance(userRepo repository.UserRepository) AuthService {
 	return &authService{
 		userRepo: userRepo,
-		roleRepo: repository.NewRoleRepository(database.DB),
+		roleRepo: repository.RoleRepositoryInstance(database.DB),
 	}
 }
 

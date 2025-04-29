@@ -17,7 +17,7 @@ type roleService struct {
 	roleRepo repository.RoleRepository
 }
 
-func NewRoleService(roleRepo repository.RoleRepository) RoleService {
+func RoleServiceInstance(roleRepo repository.RoleRepository) RoleService {
 	return &roleService{roleRepo: roleRepo}
 }
 
@@ -59,4 +59,4 @@ func (s *roleService) InitializeDefaultRoles() error {
 	}
 
 	return nil
-} 
+}

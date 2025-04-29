@@ -29,7 +29,7 @@ type accountService struct {
 	transactionRepo repository.TransactionRepository
 }
 
-func NewAccountService(accountRepo repository.AccountRepository, transactionRepo repository.TransactionRepository) AccountService {
+func AccountServiceInstance(accountRepo repository.AccountRepository, transactionRepo repository.TransactionRepository) AccountService {
 	return &accountService{
 		accountRepo:     accountRepo,
 		transactionRepo: transactionRepo,

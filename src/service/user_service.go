@@ -16,7 +16,7 @@ type userService struct {
 	userRepo repository.UserRepository
 }
 
-func NewUserService(userRepo repository.UserRepository) UserService {
+func UserServiceInstance(userRepo repository.UserRepository) UserService {
 	return &userService{userRepo: userRepo}
 }
 
@@ -44,4 +44,4 @@ func (s *userService) DeleteUser(id uint) error {
 		return errors.New("user not found")
 	}
 	return s.userRepo.DeleteUser(id)
-} 
+}

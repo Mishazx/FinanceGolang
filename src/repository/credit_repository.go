@@ -2,8 +2,9 @@ package repository
 
 import (
 	"FinanceGolang/src/model"
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type CreditRepository interface {
@@ -24,7 +25,7 @@ type creditRepo struct {
 	BaseRepository
 }
 
-func NewCreditRepository(db *gorm.DB) CreditRepository {
+func CreditRepositoryInstance(db *gorm.DB) CreditRepository {
 	return &creditRepo{
 		BaseRepository: InitializeRepository(db),
 	}
@@ -97,4 +98,4 @@ func (r *creditRepo) GetOverduePayments() ([]model.PaymentSchedule, error) {
 
 func (r *creditRepo) UpdatePaymentStatus(paymentID uint, status string) error {
 	return r.db.Model(&model.PaymentSchedule{}).Where("id = ?", paymentID).Update("status", status).Error
-} 
+}

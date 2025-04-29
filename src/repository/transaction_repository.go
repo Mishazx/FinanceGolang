@@ -19,7 +19,7 @@ type transactionRepo struct {
 	BaseRepository
 }
 
-func NewTransactionRepository(db *gorm.DB) TransactionRepository {
+func TransactionRepositoryInstance(db *gorm.DB) TransactionRepository {
 	return &transactionRepo{
 		BaseRepository: InitializeRepository(db),
 	}

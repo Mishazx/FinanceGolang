@@ -1,5 +1,5 @@
 # Этап сборки
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -8,10 +8,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Копируем исходный код
-COPY ./src .
+COPY . .
 
 # Собираем приложение
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./src/main.go
 
 # Финальный этап
 FROM alpine:latest
@@ -29,4 +29,4 @@ RUN apk --no-cache add ca-certificates
 
 EXPOSE 8080
 
-CMD ["./main"] 
+CMD ["./main"]

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"FinanceGolang/src/model"
+
 	"gorm.io/gorm"
 	// "errors"
 )
@@ -17,7 +18,7 @@ type roleRepository struct {
 	BaseRepository
 }
 
-func NewRoleRepository(db *gorm.DB) RoleRepository {
+func RoleRepositoryInstance(db *gorm.DB) RoleRepository {
 	return &roleRepository{
 		BaseRepository: InitializeRepository(db),
 	}
@@ -56,4 +57,4 @@ func (r *roleRepository) GetUserRoles(userID uint) ([]model.Role, error) {
 		return nil, err
 	}
 	return user.Roles, nil
-} 
+}

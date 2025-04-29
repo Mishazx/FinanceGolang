@@ -1,8 +1,8 @@
 package model
 
 import (
-	"regexp"
 	"gorm.io/gorm"
+	"regexp"
 )
 
 type User struct {
