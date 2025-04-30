@@ -4,6 +4,7 @@ import (
 	"FinanceGolang/src/service"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,6 +22,22 @@ type CreateCreditRequest struct {
 	Amount      float64 `json:"amount" binding:"required,gt=0"`
 	TermMonths  int     `json:"term_months" binding:"required,gt=0"`
 	Description string  `json:"description"`
+}
+
+type CreditResponse struct {
+	ID             uint      `json:"id"`
+	UserID         uint      `json:"user_id"`
+	AccountID      uint      `json:"account_id"`
+	Amount         float64   `json:"amount"`
+	InterestRate   float64   `json:"interest_rate"`
+	TermMonths     int       `json:"term_months"`
+	MonthlyPayment float64   `json:"monthly_payment"`
+	Status         string    `json:"status"`
+	StartDate      time.Time `json:"start_date"`
+	EndDate        time.Time `json:"end_date"`
+	Description    string    `json:"description"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type ProcessPaymentRequest struct {
@@ -58,27 +75,59 @@ func (c *CreditController) CreateCredit(ctx *gin.Context) {
 		return
 	}
 
+	// Преобразуем модель в структуру ответа
+	response := CreditResponse{
+		ID:             credit.ID,
+		UserID:         credit.UserID,
+		AccountID:      credit.AccountID,
+		Amount:         credit.Amount,
+		InterestRate:   credit.InterestRate,
+		TermMonths:     credit.TermMonths,
+		MonthlyPayment: credit.MonthlyPayment,
+		Status:         string(credit.Status),
+		StartDate:      credit.StartDate,
+		EndDate:        credit.EndDate,
+		Description:    credit.Description,
+		CreatedAt:      credit.CreatedAt,
+		UpdatedAt:      credit.UpdatedAt,
+	}
+
 	ctx.JSON(http.StatusCreated, gin.H{
 		"message": "credit created successfully",
-		"credit":  credit,
+		"credit":  response,
 	})
 }
 
 func (c *CreditController) GetCreditByID(ctx *gin.Context) {
-	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	creditID, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid credit ID"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid credit id"})
 		return
 	}
 
-	credit, err := c.creditService.GetCreditByID(uint(id))
+	credit, err := c.creditService.GetCreditByID(uint(creditID))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "credit not found"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"credit": credit})
+	response := CreditResponse{
+		ID:             credit.ID,
+		UserID:         credit.UserID,
+		AccountID:      credit.AccountID,
+		Amount:         credit.Amount,
+		InterestRate:   credit.InterestRate,
+		TermMonths:     credit.TermMonths,
+		MonthlyPayment: credit.MonthlyPayment,
+		Status:         string(credit.Status),
+		StartDate:      credit.StartDate,
+		EndDate:        credit.EndDate,
+		Description:    credit.Description,
+		CreatedAt:      credit.CreatedAt,
+		UpdatedAt:      credit.UpdatedAt,
+	}
+
+	ctx.JSON(http.StatusOK, response)
 }
 
 func (c *CreditController) GetUserCredits(ctx *gin.Context) {
@@ -94,20 +143,38 @@ func (c *CreditController) GetUserCredits(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"credits": credits})
+	responses := make([]CreditResponse, len(credits))
+	for i, credit := range credits {
+		responses[i] = CreditResponse{
+			ID:             credit.ID,
+			UserID:         credit.UserID,
+			AccountID:      credit.AccountID,
+			Amount:         credit.Amount,
+			InterestRate:   credit.InterestRate,
+			TermMonths:     credit.TermMonths,
+			MonthlyPayment: credit.MonthlyPayment,
+			Status:         string(credit.Status),
+			StartDate:      credit.StartDate,
+			EndDate:        credit.EndDate,
+			Description:    credit.Description,
+			CreatedAt:      credit.CreatedAt,
+			UpdatedAt:      credit.UpdatedAt,
+		}
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"credits": responses})
 }
 
 func (c *CreditController) GetPaymentSchedule(ctx *gin.Context) {
-	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	creditID, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid credit ID"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid credit id"})
 		return
 	}
 
-	schedule, err := c.creditService.GetPaymentSchedule(uint(id))
+	schedule, err := c.creditService.GetPaymentSchedule(uint(creditID))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "payment schedule not found"})
 		return
 	}
 

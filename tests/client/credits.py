@@ -188,9 +188,9 @@ class CreditManager:
                 for payment in schedule:
                     table.add_row(
                         str(payment['payment_number']),
-                        payment['payment_date'],
-                        f"{payment['principal_amount']:.2f} ₽",
-                        f"{payment['interest_amount']:.2f} ₽",
+                        payment['due_date'],
+                        f"{payment['principal']:.2f} ₽",
+                        f"{payment['interest']:.2f} ₽",
                         f"{payment['total_amount']:.2f} ₽",
                         payment['status']
                     )
