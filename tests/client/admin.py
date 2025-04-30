@@ -140,4 +140,75 @@ class AdminManager:
                     self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
             
         except Exception as e:
+            self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+
+    def test_scheduler(self):
+        if not self.auth_manager.token:
+            self.console.print("[red]Ошибка: Необходима авторизация[/red]")
+            return
+        
+        self.console.print("\n[bold blue]Тестирование шедулера[/bold blue]")
+        self.console.print("=" * 50)
+        
+        try:
+            # Получаем список всех кредитов
+            response = requests.get(
+                f"{self.base_url}/api/admin/credits",
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
+            )
+            
+            if response.status_code == 200:
+                credits = response.json().get('credits', [])
+                
+                if not credits:
+                    self.console.print("[yellow]Нет активных кредитов для проверки[/yellow]")
+                    return
+                
+                # Показываем список кредитов
+                table = Table(show_header=True, header_style="bold magenta")
+                table.add_column("ID")
+                table.add_column("Пользователь")
+                table.add_column("Сумма")
+                table.add_column("Статус")
+                table.add_column("Дата начала")
+                table.add_column("Дата окончания")
+                
+                for credit in credits:
+                    table.add_row(
+                        str(credit['id']),
+                        str(credit['user_id']),
+                        f"{credit['amount']:.2f} ₽",
+                        credit['status'],
+                        credit['start_date'],
+                        credit['end_date']
+                    )
+                
+                self.console.print(table)
+                
+                # Запускаем проверку платежей
+                self.console.print("\n[bold]Запуск проверки платежей...[/bold]")
+                response = requests.post(
+                    f"{self.base_url}/api/admin/scheduler/check-payments",
+                    headers={"Authorization": f"Bearer {self.auth_manager.token}"}
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    self.console.print("[green]Проверка платежей выполнена![/green]")
+                    
+                    # Показываем результаты
+                    result_table = Table(show_header=True, header_style="bold green")
+                    result_table.add_column("Метрика")
+                    result_table.add_column("Значение")
+                    
+                    for key, value in result.items():
+                        result_table.add_row(key, str(value))
+                    
+                    self.console.print(result_table)
+                else:
+                    self.console.print(f"[red]Ошибка: {response.json().get('error')}[/red]")
+            else:
+                self.console.print(f"[red]Ошибка: {response.json().get('error')}[/red]")
+            
+        except Exception as e:
             self.console.print(f"[red]Ошибка: {str(e)}[/red]") 

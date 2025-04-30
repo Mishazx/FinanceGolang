@@ -127,3 +127,13 @@ func (s *Scheduler) processCreditPayment(credit *model.Credit) {
 		}
 	}
 }
+
+// CheckPayments запускает проверку платежей вручную
+func (s *Scheduler) CheckPayments() {
+	s.checkPayments()
+}
+
+// GetAllCredits возвращает список всех кредитов
+func (s *Scheduler) GetAllCredits() ([]model.Credit, error) {
+	return s.creditRepo.GetAllCredits()
+}

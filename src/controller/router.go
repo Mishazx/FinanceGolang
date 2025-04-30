@@ -306,6 +306,27 @@ func (r *Router) RegisterAnalyticsRoutes(g *gin.RouterGroup) {
 	}
 }
 
+// RegisterAdminRoutes регистрирует маршруты админской части
+func (r *Router) RegisterAdminRoutes(g *gin.RouterGroup) {
+	authService := r.createAuthService()
+	scheduler := service.NewScheduler(
+		repository.CreditRepositoryInstance(database.DB),
+		repository.AccountRepositoryInstance(database.DB),
+		repository.TransactionRepositoryInstance(database.DB),
+		service.NewExternalService("", 0, "", "", ""),
+	)
+	adminController := CreateAdminController(scheduler)
+
+	admin := g.Group("/admin")
+	admin.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
+		ValidateUserFromToken: authService.ValidateUserFromToken,
+	}))
+	{
+		admin.GET("/credits", adminController.GetAllCredits)
+		admin.POST("/scheduler/check-payments", adminController.CheckPayments)
+	}
+}
+
 // InitRoutes инициализирует все маршруты приложения
 func (r *Router) InitRoutes() *gin.Engine {
 	router := gin.Default()
@@ -350,6 +371,7 @@ func (r *Router) InitRoutes() *gin.Engine {
 		r.RegisterCardRoutes(api)
 		r.RegisterCreditRoutes(api)
 		r.RegisterAnalyticsRoutes(api)
+		r.RegisterAdminRoutes(api)
 	}
 
 	return router

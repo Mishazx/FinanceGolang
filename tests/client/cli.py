@@ -71,6 +71,7 @@ class BankCLI:
                 if self.auth_manager.is_admin():
                     self.console.print("a. Управление пользователями")
                     self.console.print("b. Управление ролями")
+                    self.console.print("c. Тестирование шедулера")
                 
                 self.console.print("l. Выйти из аккаунта")
                 self.console.print("0. Завершить программу")
@@ -80,7 +81,7 @@ class BankCLI:
             else:
                 choices = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "l"]
                 if self.auth_manager.is_admin():
-                    choices.extend(["a", "b"])
+                    choices.extend(["a", "b", "c"])
             
             choice = Prompt.ask("\nВыберите действие", choices=choices)
             
@@ -123,6 +124,8 @@ class BankCLI:
                     self.admin_manager.manage_users()
                 elif choice == "b" and self.auth_manager.is_admin():
                     self.admin_manager.manage_roles()
+                elif choice == "c" and self.auth_manager.is_admin():
+                    self.admin_manager.test_scheduler()
             
             # Добавляем паузу после выполнения команды
             input("\nНажмите Enter для продолжения...")
