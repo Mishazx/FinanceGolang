@@ -4,13 +4,13 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 class AdminManager:
-    def __init__(self, base_url, console, token):
+    def __init__(self, base_url, console, auth_manager):
         self.base_url = base_url
         self.console = console
-        self.token = token
+        self.auth_manager = auth_manager
 
     def manage_users(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
         
@@ -20,7 +20,7 @@ class AdminManager:
         try:
             response = requests.get(
                 f"{self.base_url}/api/admin/users",
-                headers={"Authorization": f"Bearer {self.token}"}
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
             if response.status_code == 200:
@@ -60,13 +60,13 @@ class AdminManager:
                 if action == "assign_role":
                     response = requests.post(
                         f"{self.base_url}/api/admin/users/{user_id}/roles",
-                        headers={"Authorization": f"Bearer {self.token}"},
+                        headers={"Authorization": f"Bearer {self.auth_manager.token}"},
                         json={"role": role}
                     )
                 else:
                     response = requests.delete(
                         f"{self.base_url}/api/admin/users/{user_id}/roles/{role}",
-                        headers={"Authorization": f"Bearer {self.token}"}
+                        headers={"Authorization": f"Bearer {self.auth_manager.token}"}
                     )
                 
                 if response.status_code in [200, 201]:
@@ -78,7 +78,7 @@ class AdminManager:
             self.console.print(f"[red]Ошибка: {str(e)}[/red]")
 
     def manage_roles(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
         
@@ -88,7 +88,7 @@ class AdminManager:
         try:
             response = requests.get(
                 f"{self.base_url}/api/admin/roles",
-                headers={"Authorization": f"Bearer {self.token}"}
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
             if response.status_code == 200:
@@ -121,7 +121,7 @@ class AdminManager:
                     
                     response = requests.post(
                         f"{self.base_url}/api/admin/roles",
-                        headers={"Authorization": f"Bearer {self.token}"},
+                        headers={"Authorization": f"Bearer {self.auth_manager.token}"},
                         json={
                             "name": name,
                             "description": description
@@ -131,7 +131,7 @@ class AdminManager:
                     role_name = Prompt.ask("Введите название роли для удаления")
                     response = requests.delete(
                         f"{self.base_url}/api/admin/roles/{role_name}",
-                        headers={"Authorization": f"Bearer {self.token}"}
+                        headers={"Authorization": f"Bearer {self.auth_manager.token}"}
                     )
                 
                 if response.status_code in [200, 201]:

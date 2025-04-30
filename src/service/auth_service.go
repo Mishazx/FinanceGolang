@@ -7,7 +7,6 @@ import (
 	"FinanceGolang/src/repository"
 	"FinanceGolang/src/security"
 
-	// "FinanceGolang/src/token"
 	"fmt"
 	"log"
 
@@ -40,7 +39,10 @@ func (s *authService) Register(user *model.User) error {
 	// Проверяем, существует ли пользователь с таким именем
 	_, err := s.userRepo.FindUserByUsername(user.Username)
 	if err != nil {
-		if err != gorm.ErrRecordNotFound {
+		if err == gorm.ErrRecordNotFound {
+			// Пользователь не найден, это хорошо - продолжаем регистрацию
+		} else {
+			// Другая ошибка при поиске пользователя
 			return err
 		}
 	} else {

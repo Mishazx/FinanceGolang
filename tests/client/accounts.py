@@ -4,13 +4,13 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 class AccountManager:
-    def __init__(self, base_url, console, token):
+    def __init__(self, base_url, console, auth_manager):
         self.base_url = base_url
         self.console = console
-        self.token = token
+        self.auth_manager = auth_manager
 
     def create_account(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
 
@@ -21,7 +21,7 @@ class AccountManager:
 
         response = requests.post(
             f"{self.base_url}/api/accounts",
-            headers={"Authorization": f"Bearer {self.token}"},
+            headers={"Authorization": f"Bearer {self.auth_manager.token}"},
             json={"name": name}
         )
 
@@ -31,7 +31,7 @@ class AccountManager:
             self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
 
     def get_accounts(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
 
@@ -40,13 +40,13 @@ class AccountManager:
         
         try:
             # Отладочная информация о токене
-            self.console.print(f"[yellow]Используемый токен: {self.token}[/yellow]")
+            self.console.print(f"[yellow]Используемый токен: {self.auth_manager.token}[/yellow]")
             
             url = f"{self.base_url}/api/accounts"
             self.console.print(f"[yellow]Запрос к URL: {url}[/yellow]")
             
             headers = {
-                "Authorization": f"Bearer {self.token}",
+                "Authorization": f"Bearer {self.auth_manager.token}",
                 "Content-Type": "application/json"
             }
             self.console.print(f"[yellow]Заголовки запроса: {headers}[/yellow]")
@@ -90,7 +90,7 @@ class AccountManager:
             self.console.print(f"[red]Трассировка: {traceback.format_exc()}[/red]")
 
     def deposit(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
 
@@ -103,7 +103,7 @@ class AccountManager:
 
         response = requests.post(
             f"{self.base_url}/api/accounts/{account_id}/deposit",
-            headers={"Authorization": f"Bearer {self.token}"},
+            headers={"Authorization": f"Bearer {self.auth_manager.token}"},
             json={
                 "amount": amount,
                 "description": description
@@ -116,7 +116,7 @@ class AccountManager:
             self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
 
     def withdraw(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
 
@@ -129,7 +129,7 @@ class AccountManager:
 
         response = requests.post(
             f"{self.base_url}/api/accounts/{account_id}/withdraw",
-            headers={"Authorization": f"Bearer {self.token}"},
+            headers={"Authorization": f"Bearer {self.auth_manager.token}"},
             json={
                 "amount": amount,
                 "description": description
@@ -142,7 +142,7 @@ class AccountManager:
             self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
 
     def transfer(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
 
@@ -156,7 +156,7 @@ class AccountManager:
 
         response = requests.post(
             f"{self.base_url}/api/accounts/{from_account_id}/transfer",
-            headers={"Authorization": f"Bearer {self.token}"},
+            headers={"Authorization": f"Bearer {self.auth_manager.token}"},
             json={
                 "to_account_id": int(to_account_id),
                 "amount": amount,

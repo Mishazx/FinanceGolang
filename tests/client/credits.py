@@ -4,13 +4,13 @@ from rich.prompt import Prompt, Confirm
 from rich.table import Table
 
 class CreditManager:
-    def __init__(self, base_url, console, token):
+    def __init__(self, base_url, console, auth_manager):
         self.base_url = base_url
         self.console = console
-        self.token = token
+        self.auth_manager = auth_manager
 
     def create_credit(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
         
@@ -21,7 +21,7 @@ class CreditManager:
         try:
             response = requests.get(
                 f"{self.base_url}/api/accounts",
-                headers={"Authorization": f"Bearer {self.token}"}
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
             if response.status_code != 200:
@@ -66,8 +66,8 @@ class CreditManager:
             
             try:
                 response = requests.post(
-                    f"{self.base_url}/api/credits/credits",
-                    headers={"Authorization": f"Bearer {self.token}"},
+                    f"{self.base_url}/api/credits",
+                    headers={"Authorization": f"Bearer {self.auth_manager.token}"},
                     json=json_data
                 )
                 
@@ -97,7 +97,7 @@ class CreditManager:
             self.console.print(f"[red]Ошибка: {str(e)}[/red]")
 
     def get_credits(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
         
@@ -106,8 +106,8 @@ class CreditManager:
         
         try:
             response = requests.get(
-                f"{self.base_url}/api/credits/credits",
-                headers={"Authorization": f"Bearer {self.token}"}
+                f"{self.base_url}/api/credits",
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
             if response.status_code == 200:
@@ -157,7 +157,7 @@ class CreditManager:
             self.console.print(f"[red]Ошибка: {str(e)}[/red]")
 
     def get_payment_schedule(self, credit_id):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
         
@@ -167,7 +167,7 @@ class CreditManager:
         try:
             response = requests.get(
                 f"{self.base_url}/api/credits/{credit_id}/schedule",
-                headers={"Authorization": f"Bearer {self.token}"}
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
             if response.status_code == 200:
@@ -208,7 +208,7 @@ class CreditManager:
             self.console.print(f"[red]Ошибка: {str(e)}[/red]")
 
     def process_payment(self, credit_id, payment_number):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
         
@@ -218,7 +218,7 @@ class CreditManager:
         try:
             response = requests.post(
                 f"{self.base_url}/api/credits/{credit_id}/payment",
-                headers={"Authorization": f"Bearer {self.token}"},
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"},
                 json={
                     "payment_number": payment_number
                 }

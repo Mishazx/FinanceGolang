@@ -12,7 +12,7 @@ type CreditController struct {
 	creditService service.CreditService
 }
 
-func NewCreditController(creditService service.CreditService) *CreditController {
+func CreateCreditController(creditService service.CreditService) *CreditController {
 	return &CreditController{creditService: creditService}
 }
 

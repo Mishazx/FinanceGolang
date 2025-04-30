@@ -73,8 +73,9 @@ type AuthMiddlewareDeps struct {
 
 func AuthMiddleware(deps AuthMiddlewareDeps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString := c.GetHeader("Authorization")
-		if tokenString == "" {
+		// Получаем все заголовки Authorization
+		authHeaders := c.Request.Header["Authorization"]
+		if len(authHeaders) == 0 {
 			c.JSON(401, gin.H{
 				"status":  "error",
 				"message": "Authorization header is required",
@@ -83,9 +84,19 @@ func AuthMiddleware(deps AuthMiddlewareDeps) gin.HandlerFunc {
 			return
 		}
 
-		tokenString, _ = CutToken(tokenString)
-
-		// log.Printf("Received token: %s", tokenString)
+		// Берем первый заголовок
+		tokenString := authHeaders[0]
+		
+		// Удаляем префикс "Bearer " если он есть
+		tokenString, err := CutToken(tokenString)
+		if err != nil {
+			c.JSON(401, gin.H{
+				"status":  "error",
+				"message": "Invalid token format",
+			})
+			c.Abort()
+			return
+		}
 
 		// Проверяем токен и получаем пользователя
 		user, err := deps.ValidateUserFromToken(tokenString)

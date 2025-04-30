@@ -1,16 +1,17 @@
 package model
 
 import (
-	"gorm.io/gorm"
 	"regexp"
+
+	"gorm.io/gorm"
 )
 
 type User struct {
 	gorm.Model
 	Fio      string `json:"fio" gorm:"not null"`
 	Username string `json:"username" gorm:"unique;not null"`
-	Email    string `json:"email" gorm:"unique;not null;check:email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'"`
-	Password string `json:"-" gorm:"not null;check:length(password) >= 8"`
+	Email    string `json:"email" gorm:"unique;not null"` // Removed CHECK constraint
+	Password string `json:"-" gorm:"not null"`            // Removed CHECK constraint
 	Roles    []Role `json:"roles" gorm:"many2many:user_roles;"`
 }
 

@@ -18,11 +18,11 @@ class BankCLI:
         # Отладочная информация
         self.console.print(f"[yellow]Токен при инициализации: {self.auth_manager.token}[/yellow]")
         
-        self.account_manager = AccountManager(self.base_url, self.console, self.auth_manager.token)
-        self.card_manager = CardManager(self.base_url, self.console, self.auth_manager.token)
-        self.credit_manager = CreditManager(self.base_url, self.console, self.auth_manager.token)
-        self.transaction_manager = TransactionManager(self.base_url, self.console, self.auth_manager.token)
-        self.admin_manager = AdminManager(self.base_url, self.console, self.auth_manager.token)
+        self.account_manager = AccountManager(self.base_url, self.console, self.auth_manager)
+        self.card_manager = CardManager(self.base_url, self.console, self.auth_manager)
+        self.credit_manager = CreditManager(self.base_url, self.console, self.auth_manager)
+        self.transaction_manager = TransactionManager(self.base_url, self.console, self.auth_manager)
+        self.admin_manager = AdminManager(self.base_url, self.console, self.auth_manager)
 
     def clear_screen(self):
         self.console.clear()
@@ -89,6 +89,9 @@ class BankCLI:
                     sys.exit()
             elif choice == "l" and is_authenticated:
                 self.auth_manager.logout()
+                self.console.print("[green]Вы успешно вышли из системы[/green]")
+                input("\nНажмите Enter для продолжения...")
+                continue
             elif choice == "1":
                 if is_authenticated:
                     self.account_manager.create_account()

@@ -12,7 +12,7 @@ type AnalyticsController struct {
 	analyticsService *service.AnalyticsService
 }
 
-func NewAnalyticsController(analyticsService *service.AnalyticsService) *AnalyticsController {
+func CreateAnalyticsController(analyticsService *service.AnalyticsService) *AnalyticsController {
 	return &AnalyticsController{
 		analyticsService: analyticsService,
 	}
@@ -102,4 +102,4 @@ func (c *AnalyticsController) GetSpendingCategories(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, categories)
-} 
+}

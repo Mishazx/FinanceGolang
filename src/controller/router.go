@@ -39,24 +39,8 @@ const (
 
 // Константы для сообщений об ошибках
 const (
-	ErrInvalidCredentials = "Неверные учетные данные"
-	ErrUserNotFound       = "Пользователь не найден"
-	ErrAccountNotFound    = "Счет не найден"
-	ErrInsufficientFunds  = "Недостаточно средств"
-	ErrInvalidAmount      = "Неверная сумма"
-	ErrInvalidToken       = "Неверный токен"
-	ErrUnauthorized       = "Не авторизован"
-	ErrInternalServer     = "Внутренняя ошибка сервера"
-)
-
-// Константы для успешных операций
-const (
-	MsgRegistrationSuccess = "Регистрация успешно завершена"
-	MsgLoginSuccess        = "Вход выполнен успешно"
-	MsgDepositSuccess      = "Средства успешно зачислены"
-	MsgWithdrawSuccess     = "Средства успешно сняты"
-	MsgTransferSuccess     = "Перевод выполнен успешно"
-	MsgPaymentSuccess      = "Платеж выполнен успешно"
+	ErrUnauthorized   = "Не авторизован"
+	ErrInternalServer = "Внутренняя ошибка сервера"
 )
 
 type Router struct{}
@@ -169,6 +153,13 @@ func ErrorHandlerMiddleware() gin.HandlerFunc {
 // CORSMiddleware обрабатывает CORS заголовки
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Проверяем на дублирование заголовков
+		authHeaders := c.Request.Header["Authorization"]
+		if len(authHeaders) > 1 {
+			// Берем только первый заголовок
+			c.Request.Header.Set("Authorization", authHeaders[0])
+		}
+
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
@@ -179,28 +170,6 @@ func CORSMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		c.Next()
-	}
-}
-
-// RateLimitMiddleware ограничивает количество запросов
-func RateLimitMiddleware() gin.HandlerFunc {
-	limiter := make(map[string]time.Time)
-	return func(c *gin.Context) {
-		ip := c.ClientIP()
-		now := time.Now()
-
-		if last, exists := limiter[ip]; exists {
-			if now.Sub(last) < time.Second {
-				c.JSON(http.StatusTooManyRequests, gin.H{
-					"error": "Слишком много запросов. Пожалуйста, подождите.",
-				})
-				c.Abort()
-				return
-			}
-		}
-
-		limiter[ip] = now
 		c.Next()
 	}
 }
@@ -220,7 +189,7 @@ func CompressionMiddleware() gin.HandlerFunc {
 // RegisterAuthRoutes регистрирует маршруты аутентификации
 func (r *Router) RegisterAuthRoutes(g *gin.RouterGroup) {
 	authService := r.createAuthService()
-	authController := NewAuthController(authService)
+	authController := CreateAuthController(authService)
 
 	g.POST(APIPathRegister, authController.Register)
 	g.POST(APIPathLogin, authController.Login)
@@ -236,7 +205,7 @@ func (r *Router) RegisterAuthRoutes(g *gin.RouterGroup) {
 func (r *Router) RegisterUserRoutes(g *gin.RouterGroup) {
 	authService := r.createAuthService()
 	userService := r.createUserService()
-	userController := NewUserController(userService)
+	userController := CreateUserController(userService)
 
 	users := g.Group(APIPathUsers)
 	users.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
@@ -253,7 +222,7 @@ func (r *Router) RegisterUserRoutes(g *gin.RouterGroup) {
 func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
 	authService := r.createAuthService()
 	accountService := r.createAccountService()
-	accountController := NewAccountController(accountService)
+	accountController := CreateAccountController(accountService)
 
 	g.POST(APIPathAccounts, security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
@@ -281,7 +250,7 @@ func (r *Router) RegisterAccountRoutes(g *gin.RouterGroup) {
 func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {
 	authService := r.createAuthService()
 	cardService := r.createCardService()
-	cardController := NewCardController(cardService)
+	cardController := CreateCardController(cardService)
 
 	g.POST(APIPathCards, security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
@@ -295,7 +264,7 @@ func (r *Router) RegisterCardRoutes(g *gin.RouterGroup) {
 func (r *Router) RegisterKeyRateRoutes(g *gin.RouterGroup) {
 	authService := r.createAuthService()
 	externalService := service.NewExternalService("", 0, "", "", "")
-	cbrController := NewCbrController(externalService)
+	cbrController := CreateCbrController(externalService)
 
 	g.GET("", security.AuthMiddleware(security.AuthMiddlewareDeps{
 		ValidateUserFromToken: authService.ValidateUserFromToken,
@@ -306,7 +275,7 @@ func (r *Router) RegisterKeyRateRoutes(g *gin.RouterGroup) {
 func (r *Router) RegisterCreditRoutes(g *gin.RouterGroup) {
 	authService := r.createAuthService()
 	creditService := r.createCreditService()
-	creditController := NewCreditController(creditService)
+	creditController := CreateCreditController(creditService)
 
 	credits := g.Group(APIPathCredits)
 	credits.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
@@ -325,7 +294,7 @@ func (r *Router) RegisterCreditRoutes(g *gin.RouterGroup) {
 func (r *Router) RegisterAnalyticsRoutes(g *gin.RouterGroup) {
 	authService := r.createAuthService()
 	analyticsService := r.createAnalyticsService()
-	analyticsController := NewAnalyticsController(analyticsService)
+	analyticsController := CreateAnalyticsController(analyticsService)
 
 	analytics := g.Group(APIPathAnalytics)
 	analytics.Use(security.AuthMiddleware(security.AuthMiddlewareDeps{
@@ -341,20 +310,41 @@ func (r *Router) RegisterAnalyticsRoutes(g *gin.RouterGroup) {
 func (r *Router) InitRoutes() *gin.Engine {
 	router := gin.Default()
 
-	// Создаем хранилище для кэша
-	store := persistence.NewInMemoryStore(time.Minute)
+	// Настраиваем обработку путей
+	router.RedirectTrailingSlash = true
+	router.RedirectFixedPath = true
+	router.HandleMethodNotAllowed = true
 
-	// Добавляем middleware
+	// Добавляем middleware в правильном порядке
 	router.Use(LoggerMiddleware())
-	router.Use(ErrorHandlerMiddleware())
 	router.Use(CORSMiddleware())
-	router.Use(RateLimitMiddleware())
-	router.Use(CompressionMiddleware())
-	router.Use(CacheMiddleware(store))
+	router.Use(ErrorHandlerMiddleware())
+
+	// Отключаем сжатие для определенных путей
+	router.Use(func(c *gin.Context) {
+		if c.Request.URL.Path == "/api/auth/login" || c.Request.URL.Path == "/api/auth/register" {
+			c.Next()
+			return
+		}
+		CompressionMiddleware()(c)
+	})
 
 	api := router.Group("/api")
 	{
-		r.RegisterAuthRoutes(api)
+		// Регистрируем маршруты аутентификации
+		auth := api.Group("/auth")
+		{
+			authController := CreateAuthController(r.createAuthService())
+			auth.POST("/register", authController.Register)
+			auth.POST("/login", authController.Login)
+			auth.GET("/my", security.AuthMiddleware(security.AuthMiddlewareDeps{
+				ValidateUserFromToken: r.createAuthService().ValidateUserFromToken,
+			}), authController.MyUser)
+			auth.GET("/auth-status", security.AuthMiddleware(security.AuthMiddlewareDeps{
+				ValidateUserFromToken: r.createAuthService().ValidateUserFromToken,
+			}), authController.AuthStatus)
+		}
+
 		r.RegisterUserRoutes(api)
 		r.RegisterAccountRoutes(api)
 		r.RegisterCardRoutes(api)

@@ -82,6 +82,7 @@ func GenerateExpiryDate() string {
 	month := int(currentTime.Month())
 	year := currentTime.Year() + 5 // Добавляем 5 лет к текущему году
 
+	// Форматируем как MM/YY, где MM - 01-12, YY - последние две цифры года
 	return fmt.Sprintf("%02d/%02d", month, year%100) // Форматируем как MM/YY
 }
 

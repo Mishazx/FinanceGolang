@@ -3,6 +3,7 @@ package controller
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/service"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,13 +13,16 @@ type AuthController struct {
 	authService service.AuthService
 }
 
-func NewAuthController(authService service.AuthService) *AuthController {
+func CreateAuthController(authService service.AuthService) *AuthController {
 	return &AuthController{authService: authService}
 }
 
 func (h *AuthController) Register(c *gin.Context) {
+	log.Printf("Register request received: %v", c.Request.Body)
+
 	var user model.User
 	if err := c.ShouldBindJSON(&user); err != nil {
+		log.Printf("Error binding JSON: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "error",
 			"message": err.Error(),
@@ -26,7 +30,10 @@ func (h *AuthController) Register(c *gin.Context) {
 		return
 	}
 
+	log.Printf("Attempting to register user: %s", user.Username)
+
 	if err := h.authService.Register(&user); err != nil {
+		log.Printf("Registration error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "error",
 			"message": err.Error(),
@@ -41,14 +48,20 @@ func (h *AuthController) Register(c *gin.Context) {
 }
 
 func (h *AuthController) Login(c *gin.Context) {
+	log.Printf("Login request received: %v", c.Request.Body)
+
 	var user model.User
 	if err := c.ShouldBindJSON(&user); err != nil {
+		log.Printf("Error binding JSON: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	log.Printf("Attempting to login user: %s", user.Username)
+
 	token, err := h.authService.Login(&user)
 	if err != nil {
+		log.Printf("Login error: %v", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
@@ -57,25 +70,45 @@ func (h *AuthController) Login(c *gin.Context) {
 }
 
 func (h *AuthController) MyUser(c *gin.Context) {
-	username := c.MustGet("username").(string)
+	log.Printf("MyUser request received")
 
-	// Получите информацию о пользователе из базы данных или другого источника
-	user, err := h.authService.GetUserByUsernameWithoutPassword(username)
+	username, exists := c.Get("username")
+	if !exists {
+		log.Printf("Username not found in context")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	usernameStr, ok := username.(string)
+	if !ok {
+		log.Printf("Username is not a string")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid username type"})
+		return
+	}
+
+	log.Printf("Getting user info for: %s", usernameStr)
+
+	user, err := h.authService.GetUserByUsernameWithoutPassword(usernameStr)
 	if err != nil {
+		log.Printf("Error getting user info: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to retrieve user information"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Hello " + username, "user": user})
+	c.JSON(http.StatusOK, gin.H{"message": "Hello " + usernameStr, "user": user})
 }
 
 func (h *AuthController) AuthStatus(c *gin.Context) {
+	log.Printf("AuthStatus request received")
+
 	token := c.GetHeader("Authorization")
+	log.Printf("Token received: %s", token)
 
 	isValid, err := h.authService.AuthStatus(token)
 	if err != nil || !isValid {
+		log.Printf("Auth status error: %v", err)
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  "success",
+			"status":  "error",
 			"message": "invalid token",
 			"isValid": isValid,
 		})

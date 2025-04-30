@@ -7,13 +7,14 @@ import (
 	"FinanceGolang/src/security"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 )
 
 type CardService interface {
 	CreateCard(card *model.Card, userID uint) (*dto.UnsecureCard, error)
 	GetCardByID(id uint) (*model.Card, error)
-	GetAllCards() ([]model.Card, error)
+	GetUserCards(userID uint) ([]model.Card, error)
 }
 
 type cardService struct {
@@ -57,8 +58,27 @@ func (s *cardService) CreateCard(card *model.Card, userID uint) (*dto.UnsecureCa
 		return nil, errors.New("invalid card number")
 	}
 
+	// Дополнительная валидация формата номера карты
+	cardRegex := regexp.MustCompile(`^[0-9]{16}$`)
+	if !cardRegex.MatchString(unsecureCard.Number) {
+		return nil, errors.New("invalid card number format")
+	}
+
 	unsecureCard.CVV = security.GenerateCVV()
+
+	// Валидация CVV
+	cvvRegex := regexp.MustCompile(`^[0-9]{3}$`)
+	if !cvvRegex.MatchString(unsecureCard.CVV) {
+		return nil, errors.New("invalid CVV format")
+	}
+
 	unsecureCard.ExpiryDate = security.GenerateExpiryDate()
+
+	// Валидация даты истечения срока действия
+	expiryRegex := regexp.MustCompile(`^(0[1-9]|1[0-2])\/([0-9]{2})$`)
+	if !expiryRegex.MatchString(unsecureCard.ExpiryDate) {
+		return nil, errors.New("invalid expiry date format")
+	}
 
 	// Шифрование номера карты и срока действия
 	encryptedNumber, err := security.EncryptData(unsecureCard.Number)
@@ -106,10 +126,24 @@ func (s *cardService) GetCardByID(id uint) (*model.Card, error) {
 	return card, nil
 }
 
-func (s *cardService) GetAllCards() ([]model.Card, error) {
-	cards, err := s.cardRepo.GetAllCards()
+func (s *cardService) GetUserCards(userID uint) ([]model.Card, error) {
+	// Получаем все счета пользователя
+	accounts, err := s.accountRepo.GetAccountByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get user accounts: %v", err)
+	}
+
+	// Собираем ID счетов пользователя
+	accountIDs := make([]int, len(accounts))
+	for i, account := range accounts {
+		accountIDs[i] = account.ID
+	}
+
+	// Получаем карты только для счетов пользователя
+	cards, err := s.cardRepo.GetCardsByAccountIDs(accountIDs)
 	if err != nil {
 		return nil, err
 	}
+
 	return cards, nil
 }

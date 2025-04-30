@@ -4,6 +4,7 @@ import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/service"
 	"net/http"
+
 	// "strconv"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,7 @@ type UserController struct {
 	userService service.UserService
 }
 
-func NewUserController(userService service.UserService) *UserController {
+func CreateUserController(userService service.UserService) *UserController {
 	return &UserController{userService: userService}
 }
 
@@ -98,4 +99,4 @@ func (uc *UserController) DeleteCurrentUser(c *gin.Context) {
 		"status":  "success",
 		"message": "user deleted successfully",
 	})
-} 
+}

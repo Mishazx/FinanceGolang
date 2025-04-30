@@ -11,7 +11,7 @@ type CbrController struct {
 	externalService *service.ExternalService
 }
 
-func NewCbrController(externalService *service.ExternalService) *CbrController {
+func CreateCbrController(externalService *service.ExternalService) *CbrController {
 	return &CbrController{externalService: externalService}
 }
 

@@ -3,6 +3,9 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
+# Устанавливаем необходимые пакеты для сборки
+RUN apk add --no-cache build-base
+
 # Копируем файлы зависимостей
 COPY go.mod go.sum ./
 RUN go mod download
@@ -11,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Собираем приложение
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./src/main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -o main ./src/main.go
 
 # Финальный этап
 FROM alpine:latest
@@ -20,9 +23,6 @@ WORKDIR /app
 
 # Копируем бинарный файл из этапа сборки
 COPY --from=builder /app/main .
-COPY --from=builder /app/bank_config.json .
-COPY --from=builder /app/private_key.asc .
-COPY --from=builder /app/public_key.asc .
 
 # Устанавливаем необходимые пакеты
 RUN apk --no-cache add ca-certificates

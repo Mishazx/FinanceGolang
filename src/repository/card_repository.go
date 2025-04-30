@@ -15,6 +15,7 @@ type CardRepository interface {
 	GetCardByID(id uint) (*model.Card, error)
 	UpdateCard(card *model.Card) error
 	DeleteCard(id uint) error
+	GetCardsByAccountIDs(accountIDs []int) ([]model.Card, error)
 }
 
 type cardRepo struct {
@@ -87,4 +88,13 @@ func (c *cardRepo) GetCardByID(id uint) (*model.Card, error) {
 // UpdateCard implements CardRepository.
 func (c *cardRepo) UpdateCard(card *model.Card) error {
 	panic("unimplemented")
+}
+
+// GetCardsByAccountIDs получает карты по списку ID счетов
+func (c *cardRepo) GetCardsByAccountIDs(accountIDs []int) ([]model.Card, error) {
+	var cards []model.Card
+	if err := c.db.Where("account_id IN ?", accountIDs).Find(&cards).Error; err != nil {
+		return nil, err
+	}
+	return cards, nil
 }

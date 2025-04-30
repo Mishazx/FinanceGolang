@@ -4,13 +4,13 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 class CardManager:
-    def __init__(self, base_url, console, token):
+    def __init__(self, base_url, console, auth_manager):
         self.base_url = base_url
         self.console = console
-        self.token = token
+        self.auth_manager = auth_manager
 
     def create_card(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
         
@@ -21,7 +21,7 @@ class CardManager:
         try:
             response = requests.get(
                 f"{self.base_url}/api/accounts",
-                headers={"Authorization": f"Bearer {self.token}"}
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
             if response.status_code != 200:
@@ -53,7 +53,7 @@ class CardManager:
             # Создаем карту
             response = requests.post(
                 f"{self.base_url}/api/cards",
-                headers={"Authorization": f"Bearer {self.token}"},
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"},
                 json={
                     "account_id": int(account_id)
                 }
@@ -79,7 +79,7 @@ class CardManager:
             self.console.print(f"[red]Ошибка: {str(e)}[/red]")
 
     def get_all_cards(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
         
@@ -90,7 +90,7 @@ class CardManager:
             # Сначала получаем список счетов
             accounts_response = requests.get(
                 f"{self.base_url}/api/accounts",
-                headers={"Authorization": f"Bearer {self.token}"}
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
             if accounts_response.status_code != 200:
@@ -103,7 +103,7 @@ class CardManager:
             # Затем получаем список карт
             cards_response = requests.get(
                 f"{self.base_url}/api/cards",
-                headers={"Authorization": f"Bearer {self.token}"}
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
             # Отладочная информация

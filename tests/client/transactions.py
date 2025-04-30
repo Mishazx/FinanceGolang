@@ -4,13 +4,13 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 class TransactionManager:
-    def __init__(self, base_url, console, token):
+    def __init__(self, base_url, console, auth_manager):
         self.base_url = base_url
         self.console = console
-        self.token = token
+        self.auth_manager = auth_manager
 
     def get_transactions(self):
-        if not self.token:
+        if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")
             return
 
@@ -21,7 +21,7 @@ class TransactionManager:
 
         response = requests.get(
             f"{self.base_url}/api/accounts/{account_id}/transactions",
-            headers={"Authorization": f"Bearer {self.token}"}
+            headers={"Authorization": f"Bearer {self.auth_manager.token}"}
         )
 
         if response.status_code == 200:
