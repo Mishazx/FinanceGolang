@@ -3,7 +3,8 @@ package service
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
-	// "errors"
+	"context"
+	"errors"
 )
 
 type RoleService interface {
@@ -26,15 +27,19 @@ func (s *roleService) CreateRole(name, description string) error {
 		Name:        name,
 		Description: description,
 	}
-	return s.roleRepo.CreateRole(role)
+	return s.roleRepo.Create(context.Background(), role)
 }
 
 func (s *roleService) AssignRoleToUser(userID uint, roleName string) error {
-	return s.roleRepo.AssignRoleToUser(userID, roleName)
+	role, err := s.roleRepo.GetByName(context.Background(), roleName)
+	if err != nil {
+		return err
+	}
+	return s.roleRepo.UpdatePermissions(context.Background(), role.ID, []string{roleName})
 }
 
 func (s *roleService) GetUserRoles(userID uint) ([]model.Role, error) {
-	return s.roleRepo.GetUserRoles(userID)
+	return s.roleRepo.GetByUserID(context.Background(), userID)
 }
 
 func (s *roleService) InitializeDefaultRoles() error {
@@ -49,10 +54,14 @@ func (s *roleService) InitializeDefaultRoles() error {
 	}
 
 	for _, role := range roles {
-		_, err := s.roleRepo.GetRoleByName(role.name)
+		_, err := s.roleRepo.GetByName(context.Background(), role.name)
 		if err != nil {
-			// Если роль не найдена, создаем её
-			if err := s.CreateRole(role.name, role.description); err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				// Если роль не найдена, создаем её
+				if err := s.CreateRole(role.name, role.description); err != nil {
+					return err
+				}
+			} else {
 				return err
 			}
 		}

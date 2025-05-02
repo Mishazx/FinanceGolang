@@ -3,7 +3,10 @@ package service
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
+	"context"
 	"errors"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService interface {
@@ -21,27 +24,40 @@ func UserServiceInstance(userRepo repository.UserRepository) UserService {
 }
 
 func (s *userService) GetUserByID(id uint) (*model.User, error) {
-	return s.userRepo.GetUserByID(id)
+	return s.userRepo.GetByID(context.Background(), id)
 }
 
 func (s *userService) UpdateUser(user *model.User) error {
-	existingUser, err := s.userRepo.GetUserByID(user.ID)
+	existingUser, err := s.userRepo.GetByID(context.Background(), user.ID)
 	if err != nil {
 		return err
 	}
 	if existingUser == nil {
 		return errors.New("user not found")
 	}
-	return s.userRepo.UpdateUser(user)
+
+	// Сохраняем хеш пароля, если он не изменился
+	if user.Password == "" {
+		user.Password = existingUser.Password
+	} else {
+		// Хэшируем новый пароль
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		user.Password = string(hashedPassword)
+	}
+
+	return s.userRepo.Update(context.Background(), user)
 }
 
 func (s *userService) DeleteUser(id uint) error {
-	existingUser, err := s.userRepo.GetUserByID(id)
+	existingUser, err := s.userRepo.GetByID(context.Background(), id)
 	if err != nil {
 		return err
 	}
 	if existingUser == nil {
 		return errors.New("user not found")
 	}
-	return s.userRepo.DeleteUser(id)
+	return s.userRepo.Delete(context.Background(), id)
 }

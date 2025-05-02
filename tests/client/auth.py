@@ -38,11 +38,12 @@ class AuthManager:
         
         username = Prompt.ask("Введите имя пользователя")
         email = Prompt.ask("Введите email")
+        fio = Prompt.ask("Введите ФИО (Иванов Иван Иванович или Ivanov Ivan Ivanovich)")
         password = Prompt.ask("Введите пароль", password=True)
 
         # Отладочная информация
         self.console.print(f"[yellow]Отправляем запрос на {self.base_url}/api/auth/register[/yellow]")
-        self.console.print(f"[yellow]Данные: username={username}, email={email}[/yellow]")
+        self.console.print(f"[yellow]Данные: username={username}, email={email}, fio={fio}[/yellow]")
 
         try:
             response = requests.post(
@@ -50,6 +51,7 @@ class AuthManager:
                 json={
                     "username": username,
                     "email": email,
+                    "fio": fio,
                     "password": password
                 }
             )

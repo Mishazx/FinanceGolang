@@ -1,56 +1,194 @@
 package repository
 
 import (
-	"FinanceGolang/src/model"
-	// "errors"
+	"context"
 	"time"
 
+	"FinanceGolang/src/model"
+	// "errors"
 	"gorm.io/gorm"
 )
 
+// TransactionRepository интерфейс репозитория транзакций
 type TransactionRepository interface {
-	CreateTransaction(transaction *model.Transaction) error
-	GetTransactionsByAccountID(accountID uint, startDate, endDate time.Time) ([]model.Transaction, error)
-	GetTransactionByID(id uint) (*model.Transaction, error)
-	GetTransactionsByUserID(userID uint) ([]model.Transaction, error)
+	Repository[model.Transaction]
+	GetByAccountID(ctx context.Context, accountID uint) ([]model.Transaction, error)
+	GetByCardID(ctx context.Context, cardID uint) ([]model.Transaction, error)
+	GetByType(ctx context.Context, transactionType model.TransactionType) ([]model.Transaction, error)
+	GetByStatus(ctx context.Context, status model.TransactionStatus) ([]model.Transaction, error)
+	GetByDateRange(ctx context.Context, startDate, endDate time.Time) ([]model.Transaction, error)
+	GetDailyTransactions(ctx context.Context, date time.Time) ([]model.Transaction, error)
+	GetMonthlyTransactions(ctx context.Context, year int, month time.Month) ([]model.Transaction, error)
+	UpdateStatus(ctx context.Context, id uint, status model.TransactionStatus) error
+	GetTransactionsByAmountRange(ctx context.Context, minAmount, maxAmount float64) ([]model.Transaction, error)
 }
 
-type transactionRepo struct {
-	BaseRepository
+// transactionRepository реализация репозитория транзакций
+type transactionRepository struct {
+	BaseRepository[model.Transaction]
 }
 
+// TransactionRepositoryInstance создает новый репозиторий транзакций
 func TransactionRepositoryInstance(db *gorm.DB) TransactionRepository {
-	return &transactionRepo{
-		BaseRepository: InitializeRepository(db),
+	return &transactionRepository{
+		BaseRepository: *NewBaseRepository[model.Transaction](db),
 	}
 }
 
-func (r *transactionRepo) CreateTransaction(transaction *model.Transaction) error {
-	return r.db.Create(transaction).Error
+// Create создает новую транзакцию
+func (r *transactionRepository) Create(ctx context.Context, transaction *model.Transaction) error {
+	return r.WithTransaction(ctx, func(tx *gorm.DB) error {
+		if err := transaction.Validate(); err != nil {
+			return ErrInvalidData
+		}
+
+		if err := tx.Create(transaction).Error; err != nil {
+			return r.HandleError(err)
+		}
+		return nil
+	})
 }
 
-func (r *transactionRepo) GetTransactionsByAccountID(accountID uint, startDate, endDate time.Time) ([]model.Transaction, error) {
-	var transactions []model.Transaction
-	err := r.db.Where("(from_account_id = ? OR to_account_id = ?) AND created_at BETWEEN ? AND ?",
-		accountID, accountID, startDate, endDate).
-		Order("created_at DESC").
-		Find(&transactions).Error
-	return transactions, err
-}
-
-func (r *transactionRepo) GetTransactionByID(id uint) (*model.Transaction, error) {
+// GetByID получает транзакцию по ID
+func (r *transactionRepository) GetByID(ctx context.Context, id uint) (*model.Transaction, error) {
 	var transaction model.Transaction
-	err := r.db.First(&transaction, id).Error
-	return &transaction, err
+	if err := r.db.First(&transaction, id).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return &transaction, nil
 }
 
-func (r *transactionRepo) GetTransactionsByUserID(userID uint) ([]model.Transaction, error) {
+// GetByAccountID получает транзакции по ID счета
+func (r *transactionRepository) GetByAccountID(ctx context.Context, accountID uint) ([]model.Transaction, error) {
 	var transactions []model.Transaction
-	if err := r.db.Joins("JOIN accounts ON accounts.id = transactions.to_account_id OR accounts.id = transactions.from_account_id").
-		Where("accounts.user_id = ?", userID).
-		Order("transactions.created_at desc").
+	if err := r.db.Where("from_account_id = ? OR to_account_id = ?", accountID, accountID).
 		Find(&transactions).Error; err != nil {
-		return nil, err
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
+}
+
+// GetByCardID получает транзакции по ID карты
+func (r *transactionRepository) GetByCardID(ctx context.Context, cardID uint) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	if err := r.db.Where("card_id = ?", cardID).Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
+}
+
+// GetByType получает транзакции по типу
+func (r *transactionRepository) GetByType(ctx context.Context, transactionType model.TransactionType) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	if err := r.db.Where("type = ?", transactionType).Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
+}
+
+// GetByStatus получает транзакции по статусу
+func (r *transactionRepository) GetByStatus(ctx context.Context, status model.TransactionStatus) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	if err := r.db.Where("status = ?", status).Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
+}
+
+// GetByDateRange получает транзакции в указанном диапазоне дат
+func (r *transactionRepository) GetByDateRange(ctx context.Context, startDate, endDate time.Time) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	if err := r.db.Where("created_at BETWEEN ? AND ?", startDate, endDate).
+		Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
+}
+
+// GetDailyTransactions получает транзакции за день
+func (r *transactionRepository) GetDailyTransactions(ctx context.Context, date time.Time) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	if err := r.db.Where("created_at BETWEEN ? AND ?", startOfDay, endOfDay).
+		Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
+}
+
+// GetMonthlyTransactions получает транзакции за месяц
+func (r *transactionRepository) GetMonthlyTransactions(ctx context.Context, year int, month time.Month) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+
+	if err := r.db.Where("created_at BETWEEN ? AND ?", startOfMonth, endOfMonth).
+		Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
+}
+
+// Update обновляет транзакцию
+func (r *transactionRepository) Update(ctx context.Context, transaction *model.Transaction) error {
+	return r.WithTransaction(ctx, func(tx *gorm.DB) error {
+		if err := transaction.Validate(); err != nil {
+			return ErrInvalidData
+		}
+
+		if err := tx.Save(transaction).Error; err != nil {
+			return r.HandleError(err)
+		}
+		return nil
+	})
+}
+
+// UpdateStatus обновляет статус транзакции
+func (r *transactionRepository) UpdateStatus(ctx context.Context, id uint, status model.TransactionStatus) error {
+	return r.WithTransaction(ctx, func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Transaction{}).Where("id = ?", id).Update("status", status).Error; err != nil {
+			return r.HandleError(err)
+		}
+		return nil
+	})
+}
+
+// Delete удаляет транзакцию
+func (r *transactionRepository) Delete(ctx context.Context, id uint) error {
+	return r.WithTransaction(ctx, func(tx *gorm.DB) error {
+		if err := tx.Delete(&model.Transaction{}, id).Error; err != nil {
+			return r.HandleError(err)
+		}
+		return nil
+	})
+}
+
+// List получает список транзакций
+func (r *transactionRepository) List(ctx context.Context, offset, limit int) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	if err := r.db.Offset(offset).Limit(limit).Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
+}
+
+// Count возвращает количество транзакций
+func (r *transactionRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := r.db.Model(&model.Transaction{}).Count(&count).Error; err != nil {
+		return 0, r.HandleError(err)
+	}
+	return count, nil
+}
+
+// GetTransactionsByAmountRange получает транзакции в указанном диапазоне сумм
+func (r *transactionRepository) GetTransactionsByAmountRange(ctx context.Context, minAmount, maxAmount float64) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	if err := r.db.Where("amount BETWEEN ? AND ?", minAmount, maxAmount).
+		Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
 	}
 	return transactions, nil
 }

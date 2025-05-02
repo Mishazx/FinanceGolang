@@ -3,9 +3,9 @@ package service
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
+	"context"
 	"errors"
 	"fmt"
-	"math"
 
 	// "strconv"
 	"time"
@@ -43,11 +43,11 @@ func CreditServiceInstance(
 
 func (s *creditService) CreateCredit(userID uint, accountID uint, amount float64, termMonths int, description string) (*model.Credit, error) {
 	// Проверяем, что счет принадлежит пользователю
-	account, err := s.accountRepo.GetAccountByID(accountID)
+	account, err := s.accountRepo.GetByID(context.Background(), accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %v", err)
 	}
-	if uint(account.UserID) != userID {
+	if account.UserID != userID {
 		return nil, errors.New("account does not belong to the user")
 	}
 
@@ -60,111 +60,103 @@ func (s *creditService) CreateCredit(userID uint, accountID uint, amount float64
 	// Рассчитываем процентную ставку (ключевая ставка + 5%)
 	interestRate := keyRate + 5.0
 
-	// Рассчитываем ежемесячный платеж по формуле аннуитета
-	monthlyRate := interestRate / 12 / 100
-	monthlyPayment := amount * (monthlyRate * math.Pow(1+monthlyRate, float64(termMonths))) / (math.Pow(1+monthlyRate, float64(termMonths)) - 1)
-
-	// Гарантируем, что description - это строка
-	descStr := fmt.Sprintf("%v", description)
-
 	// Создаем кредит
 	credit := &model.Credit{
-		UserID:         userID,
-		AccountID:      accountID,
-		Amount:         amount,
-		InterestRate:   interestRate,
-		TermMonths:     termMonths,
-		MonthlyPayment: monthlyPayment,
-		Status:         model.CreditStatusActive,
-		StartDate:      time.Now(),
-		EndDate:        time.Now().AddDate(0, termMonths, 0),
-		Description:    descStr,
+		AccountID:     accountID,
+		Amount:        amount,
+		Term:          termMonths,
+		InterestRate:  interestRate,
+		Status:        model.CreditStatusActive,
+		StartDate:     time.Now(),
+		EndDate:       time.Now().AddDate(0, termMonths, 0),
+		PaymentDay:    time.Now().Day(),
+		NextPayment:   time.Now().AddDate(0, 1, 0),
+		RemainingDebt: amount,
 	}
 
 	// Сохраняем кредит
-	if err := s.creditRepo.CreateCredit(credit); err != nil {
+	if err := s.creditRepo.Create(context.Background(), credit); err != nil {
 		return nil, fmt.Errorf("failed to create credit: %v", err)
 	}
 
 	// Зачисляем сумму кредита на счет пользователя
 	account.Balance += amount
-	if err := s.accountRepo.UpdateAccount(account); err != nil {
+	if err := s.accountRepo.Update(context.Background(), account); err != nil {
 		return nil, fmt.Errorf("failed to update account balance: %v", err)
 	}
 
 	// Создаем транзакцию о зачислении кредита
 	transaction := &model.Transaction{
 		Type:        model.TransactionTypeCredit,
-		ToAccountID: int(accountID),
+		ToAccountID: accountID,
 		Amount:      amount,
-		Description: fmt.Sprintf("Зачисление по кредиту #%d: %s", credit.ID, descStr),
-		CreatedAt:   time.Now(),
-		Status:      "completed",
+		Description: fmt.Sprintf("Зачисление по кредиту #%d: %s", credit.ID, description),
+		Status:      model.TransactionStatusCompleted,
+		Currency:    "RUB",
 	}
-	if err := s.transactionRepo.CreateTransaction(transaction); err != nil {
+	if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %v", err)
-	}
-
-	// Создаем график платежей
-	if err := s.createPaymentSchedule(credit); err != nil {
-		return nil, fmt.Errorf("failed to create payment schedule: %v", err)
 	}
 
 	return credit, nil
 }
 
-func (s *creditService) createPaymentSchedule(credit *model.Credit) error {
-	remainingAmount := credit.Amount
-	monthlyRate := credit.InterestRate / 12 / 100
-
-	for i := 1; i <= credit.TermMonths; i++ {
-		interestAmount := remainingAmount * monthlyRate
-		principalAmount := credit.MonthlyPayment - interestAmount
-		remainingAmount -= principalAmount
-
-		schedule := &model.PaymentSchedule{
-			CreditID:      credit.ID,
-			PaymentNumber: i,
-			DueDate:       credit.StartDate.AddDate(0, i, 0),
-			Amount:        credit.MonthlyPayment,
-			Interest:      interestAmount,
-			Principal:     principalAmount,
-			TotalAmount:   credit.MonthlyPayment,
-			Status:        model.PaymentStatusPending,
-		}
-
-		if err := s.creditRepo.CreatePaymentSchedule(schedule); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (s *creditService) GetCreditByID(id uint) (*model.Credit, error) {
-	return s.creditRepo.GetCreditByID(id)
+	return s.creditRepo.GetByID(context.Background(), id)
 }
 
 func (s *creditService) GetUserCredits(userID uint) ([]model.Credit, error) {
-	return s.creditRepo.GetCreditsByUserID(userID)
+	return s.creditRepo.GetCreditsByUserID(context.Background(), userID)
 }
 
 func (s *creditService) GetPaymentSchedule(creditID uint) ([]model.PaymentSchedule, error) {
-	return s.creditRepo.GetPaymentSchedule(creditID)
+	credit, err := s.creditRepo.GetByID(context.Background(), creditID)
+	if err != nil {
+		return nil, err
+	}
+
+	var schedule []model.PaymentSchedule
+	remainingAmount := credit.Amount
+	monthlyRate := credit.InterestRate / 12 / 100
+
+	for i := 1; i <= credit.Term; i++ {
+		interestAmount := remainingAmount * monthlyRate
+		principalAmount := credit.CalculateMonthlyPayment() - interestAmount
+		remainingAmount -= principalAmount
+
+		schedule = append(schedule, model.PaymentSchedule{
+			CreditID:      credit.ID,
+			PaymentNumber: i,
+			DueDate:       credit.StartDate.AddDate(0, i, 0),
+			Amount:        credit.CalculateMonthlyPayment(),
+			Interest:      interestAmount,
+			Principal:     principalAmount,
+			TotalAmount:   credit.CalculateMonthlyPayment(),
+			Status:        model.PaymentStatusPending,
+		})
+	}
+
+	return schedule, nil
 }
 
 func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
+	// Получаем кредит
+	credit, err := s.creditRepo.GetByID(context.Background(), creditID)
+	if err != nil {
+		return fmt.Errorf("failed to get credit: %v", err)
+	}
+
 	// Получаем график платежей
-	schedules, err := s.creditRepo.GetPaymentSchedule(creditID)
+	schedule, err := s.GetPaymentSchedule(creditID)
 	if err != nil {
 		return fmt.Errorf("failed to get payment schedule: %v", err)
 	}
 
 	// Находим нужный платеж
 	var payment *model.PaymentSchedule
-	for _, s := range schedules {
-		if s.PaymentNumber == paymentNumber {
-			payment = &s
+	for i := range schedule {
+		if schedule[i].PaymentNumber == paymentNumber {
+			payment = &schedule[i]
 			break
 		}
 	}
@@ -173,18 +165,12 @@ func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
 	}
 
 	// Проверяем статус платежа
-	if payment.Status != "pending" {
+	if payment.Status != model.PaymentStatusPending {
 		return errors.New("payment already processed")
 	}
 
-	// Получаем кредит
-	credit, err := s.creditRepo.GetCreditByID(creditID)
-	if err != nil {
-		return fmt.Errorf("failed to get credit: %v", err)
-	}
-
 	// Проверяем баланс счета
-	account, err := s.accountRepo.GetAccountByID(credit.AccountID)
+	account, err := s.accountRepo.GetByID(context.Background(), credit.AccountID)
 	if err != nil {
 		return fmt.Errorf("failed to get account: %v", err)
 	}
@@ -194,52 +180,52 @@ func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
 		penalty := payment.TotalAmount * 0.1
 		payment.TotalAmount += penalty
 		credit.Status = model.CreditStatusOverdue
-		if err := s.creditRepo.UpdateCredit(credit); err != nil {
+		if err := s.creditRepo.Update(context.Background(), credit); err != nil {
 			return fmt.Errorf("failed to update credit status: %v", err)
 		}
 		return errors.New("insufficient funds, penalty applied")
 	}
 
-	// Списываем средства
+	// Списываем средства со счета
 	account.Balance -= payment.TotalAmount
-	if err := s.accountRepo.UpdateAccount(account); err != nil {
+	if err := s.accountRepo.Update(context.Background(), account); err != nil {
 		return fmt.Errorf("failed to update account balance: %v", err)
 	}
 
-	// Создаем транзакцию
+	// Создаем транзакцию о платеже
 	transaction := &model.Transaction{
-		Type:          model.TransactionTypeWithdrawal,
-		FromAccountID: int(credit.AccountID),
+		Type:          model.TransactionTypePayment,
+		FromAccountID: credit.AccountID,
 		Amount:        payment.TotalAmount,
-		Description:   fmt.Sprintf("Кредитный платеж #%d", paymentNumber),
-		CreatedAt:     time.Now(),
-		Status:        "completed",
+		Description:   fmt.Sprintf("Платеж по кредиту #%d, платеж #%d", credit.ID, paymentNumber),
+		Status:        model.TransactionStatusCompleted,
+		Currency:      "RUB",
 	}
-	if err := s.transactionRepo.CreateTransaction(transaction); err != nil {
+	if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 		return fmt.Errorf("failed to create transaction: %v", err)
 	}
 
 	// Обновляем статус платежа
+	payment.Status = model.PaymentStatusPaid
 	now := time.Now()
-	payment.Status = "paid"
 	payment.PaidAt = &now
-	if err := s.creditRepo.UpdatePaymentSchedule(payment); err != nil {
-		return fmt.Errorf("failed to update payment schedule: %v", err)
+
+	// Обновляем общую сумму выплат
+	if err := s.creditRepo.UpdateTotalPaid(context.Background(), credit.ID, payment.TotalAmount); err != nil {
+		return fmt.Errorf("failed to update total paid: %v", err)
 	}
 
-	// Проверяем, все ли платежи оплачены
-	allPaid := true
-	for _, s := range schedules {
-		if s.Status != "paid" {
-			allPaid = false
-			break
-		}
-	}
-
-	if allPaid {
+	// Если это последний платеж, закрываем кредит
+	if paymentNumber == credit.Term {
 		credit.Status = model.CreditStatusPaid
-		if err := s.creditRepo.UpdateCredit(credit); err != nil {
+		if err := s.creditRepo.Update(context.Background(), credit); err != nil {
 			return fmt.Errorf("failed to update credit status: %v", err)
+		}
+	} else {
+		// Обновляем дату следующего платежа
+		nextPayment := credit.StartDate.AddDate(0, paymentNumber+1, 0)
+		if err := s.creditRepo.UpdateNextPayment(context.Background(), credit.ID, nextPayment); err != nil {
+			return fmt.Errorf("failed to update next payment date: %v", err)
 		}
 	}
 
@@ -247,30 +233,32 @@ func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
 }
 
 func (s *creditService) ProcessOverduePayments() error {
-	// Получаем просроченные платежи
-	overduePayments, err := s.creditRepo.GetOverduePayments()
+	// Получаем просроченные кредиты
+	overdueCredits, err := s.creditRepo.GetOverdueCredits(context.Background())
 	if err != nil {
-		return fmt.Errorf("failed to get overdue payments: %v", err)
+		return fmt.Errorf("failed to get overdue credits: %v", err)
 	}
 
-	for _, payment := range overduePayments {
-		// Начисляем штраф
-		penalty := payment.TotalAmount * 0.1
-		payment.TotalAmount += penalty
-
-		// Обновляем статус кредита
-		credit, err := s.creditRepo.GetCreditByID(payment.CreditID)
+	for _, credit := range overdueCredits {
+		// Получаем график платежей
+		schedule, err := s.GetPaymentSchedule(credit.ID)
 		if err != nil {
-			continue
-		}
-		credit.Status = model.CreditStatusOverdue
-		if err := s.creditRepo.UpdateCredit(credit); err != nil {
-			continue
+			return fmt.Errorf("failed to get payment schedule for credit %d: %v", credit.ID, err)
 		}
 
-		// Обновляем платеж
-		if err := s.creditRepo.UpdatePaymentSchedule(&payment); err != nil {
-			continue
+		// Находим просроченный платеж
+		for _, payment := range schedule {
+			if payment.Status == model.PaymentStatusPending && payment.DueDate.Before(time.Now()) {
+				// Пытаемся обработать платеж
+				if err := s.ProcessPayment(credit.ID, payment.PaymentNumber); err != nil {
+					// Если не удалось обработать платеж, обновляем статус кредита
+					credit.Status = model.CreditStatusOverdue
+					if err := s.creditRepo.Update(context.Background(), &credit); err != nil {
+						return fmt.Errorf("failed to update credit status: %v", err)
+					}
+				}
+				break
+			}
 		}
 	}
 

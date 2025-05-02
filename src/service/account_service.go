@@ -3,9 +3,9 @@ package service
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
+	"context"
 	"errors"
 	"fmt"
-	"time"
 )
 
 type AccountService interface {
@@ -39,14 +39,15 @@ func AccountServiceInstance(accountRepo repository.AccountRepository, transactio
 // Базовые операции со счетом
 func (s *accountService) CreateAccount(account *model.Account, userID uint) error {
 	fmt.Println("Creating account for user ID:", userID)
-	if err := s.accountRepo.CreateAccount(account, userID); err != nil {
+	account.UserID = userID
+	if err := s.accountRepo.Create(context.Background(), account); err != nil {
 		return fmt.Errorf("could not create account: %v", err)
 	}
 	return nil
 }
 
 func (s *accountService) GetAccountByID(id uint) (*model.Account, error) {
-	account, err := s.accountRepo.GetAccountByID(id)
+	account, err := s.accountRepo.GetByID(context.Background(), id)
 	if err != nil {
 		return nil, fmt.Errorf("could not get account by ID: %v", err)
 	}
@@ -57,7 +58,7 @@ func (s *accountService) GetAccountByID(id uint) (*model.Account, error) {
 }
 
 func (s *accountService) GetAccountByUserID(userID uint) ([]model.Account, error) {
-	accounts, err := s.accountRepo.GetAccountByUserID(userID)
+	accounts, err := s.accountRepo.GetByUserID(context.Background(), userID)
 	if err != nil {
 		return nil, fmt.Errorf("could not get account by user ID: %v", err)
 	}
@@ -68,7 +69,7 @@ func (s *accountService) GetAccountByUserID(userID uint) ([]model.Account, error
 }
 
 func (s *accountService) GetAllAccounts() ([]model.Account, error) {
-	accounts, err := s.accountRepo.GetAllAccounts()
+	accounts, err := s.accountRepo.List(context.Background(), 0, 1000)
 	if err != nil {
 		return nil, fmt.Errorf("could not get all accounts: %v", err)
 	}
@@ -84,29 +85,27 @@ func (s *accountService) Deposit(accountID uint, amount float64, description str
 		return errors.New("amount must be positive")
 	}
 
-	account, err := s.accountRepo.GetAccountByID(accountID)
-	if err != nil {
+	// Проверяем существование счета
+	if _, err := s.accountRepo.GetByID(context.Background(), accountID); err != nil {
 		return fmt.Errorf("failed to get account: %v", err)
 	}
 
 	// Создаем транзакцию
 	transaction := &model.Transaction{
 		Type:        model.TransactionTypeDeposit,
-		ToAccountID: int(accountID),
+		ToAccountID: accountID,
 		Amount:      amount,
 		Description: description,
-		CreatedAt:   time.Now(),
-		Status:      "completed",
+		Status:      model.TransactionStatusCompleted,
 	}
 
 	// Обновляем баланс счета
-	account.Balance += amount
-	if err := s.accountRepo.UpdateAccount(account); err != nil {
+	if err := s.accountRepo.UpdateBalance(context.Background(), accountID, amount); err != nil {
 		return fmt.Errorf("failed to update account balance: %v", err)
 	}
 
 	// Сохраняем транзакцию
-	if err := s.transactionRepo.CreateTransaction(transaction); err != nil {
+	if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 		return fmt.Errorf("failed to create transaction: %v", err)
 	}
 
@@ -118,7 +117,7 @@ func (s *accountService) Withdraw(accountID uint, amount float64, description st
 		return errors.New("amount must be positive")
 	}
 
-	account, err := s.accountRepo.GetAccountByID(accountID)
+	account, err := s.accountRepo.GetByID(context.Background(), accountID)
 	if err != nil {
 		return fmt.Errorf("failed to get account: %v", err)
 	}
@@ -130,21 +129,19 @@ func (s *accountService) Withdraw(accountID uint, amount float64, description st
 	// Создаем транзакцию
 	transaction := &model.Transaction{
 		Type:          model.TransactionTypeWithdrawal,
-		FromAccountID: int(accountID),
+		FromAccountID: accountID,
 		Amount:        amount,
 		Description:   description,
-		CreatedAt:     time.Now(),
-		Status:        "completed",
+		Status:        model.TransactionStatusCompleted,
 	}
 
 	// Обновляем баланс счета
-	account.Balance -= amount
-	if err := s.accountRepo.UpdateAccount(account); err != nil {
+	if err := s.accountRepo.UpdateBalance(context.Background(), accountID, -amount); err != nil {
 		return fmt.Errorf("failed to update account balance: %v", err)
 	}
 
 	// Сохраняем транзакцию
-	if err := s.transactionRepo.CreateTransaction(transaction); err != nil {
+	if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 		return fmt.Errorf("failed to create transaction: %v", err)
 	}
 
@@ -160,13 +157,13 @@ func (s *accountService) Transfer(fromAccountID, toAccountID uint, amount float6
 		return errors.New("cannot transfer to the same account")
 	}
 
-	fromAccount, err := s.accountRepo.GetAccountByID(fromAccountID)
+	fromAccount, err := s.accountRepo.GetByID(context.Background(), fromAccountID)
 	if err != nil {
 		return fmt.Errorf("failed to get source account: %v", err)
 	}
 
-	toAccount, err := s.accountRepo.GetAccountByID(toAccountID)
-	if err != nil {
+	// Проверяем существование целевого счета
+	if _, err := s.accountRepo.GetByID(context.Background(), toAccountID); err != nil {
 		return fmt.Errorf("failed to get destination account: %v", err)
 	}
 
@@ -177,28 +174,24 @@ func (s *accountService) Transfer(fromAccountID, toAccountID uint, amount float6
 	// Создаем транзакцию
 	transaction := &model.Transaction{
 		Type:          model.TransactionTypeTransfer,
-		FromAccountID: int(fromAccountID),
-		ToAccountID:   int(toAccountID),
+		FromAccountID: fromAccountID,
+		ToAccountID:   toAccountID,
 		Amount:        amount,
 		Description:   description,
-		CreatedAt:     time.Now(),
-		Status:        "completed",
+		Status:        model.TransactionStatusCompleted,
 	}
 
 	// Обновляем балансы счетов
-	fromAccount.Balance -= amount
-	toAccount.Balance += amount
-
-	if err := s.accountRepo.UpdateAccount(fromAccount); err != nil {
+	if err := s.accountRepo.UpdateBalance(context.Background(), fromAccountID, -amount); err != nil {
 		return fmt.Errorf("failed to update source account balance: %v", err)
 	}
 
-	if err := s.accountRepo.UpdateAccount(toAccount); err != nil {
+	if err := s.accountRepo.UpdateBalance(context.Background(), toAccountID, amount); err != nil {
 		return fmt.Errorf("failed to update destination account balance: %v", err)
 	}
 
 	// Сохраняем транзакцию
-	if err := s.transactionRepo.CreateTransaction(transaction); err != nil {
+	if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 		return fmt.Errorf("failed to create transaction: %v", err)
 	}
 
@@ -207,8 +200,5 @@ func (s *accountService) Transfer(fromAccountID, toAccountID uint, amount float6
 
 // Операции с транзакциями
 func (s *accountService) GetTransactions(accountID uint) ([]model.Transaction, error) {
-	// Получаем транзакции за последние 30 дней
-	endDate := time.Now()
-	startDate := endDate.AddDate(0, 0, -30)
-	return s.transactionRepo.GetTransactionsByAccountID(accountID, startDate, endDate)
+	return s.transactionRepo.GetByAccountID(context.Background(), accountID)
 }

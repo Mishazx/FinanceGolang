@@ -1,56 +1,188 @@
 package model
 
 import (
+	"errors"
 	"time"
+
+	"gorm.io/gorm"
+)
+
+var (
+	ErrInvalidAmount      = errors.New("invalid transaction amount")
+	ErrInvalidType        = errors.New("invalid transaction type")
+	ErrInvalidStatus      = errors.New("invalid transaction status")
+	ErrTransactionExpired = errors.New("transaction has expired")
 )
 
 type TransactionType string
 
 const (
-	TransactionTypeDeposit    TransactionType = "deposit"    // Пополнение
-	TransactionTypeWithdrawal TransactionType = "withdrawal" // Списание
-	TransactionTypeTransfer   TransactionType = "transfer"   // Перевод
-	TransactionTypeCredit     TransactionType = "credit"     // Оформление кредита
+	TransactionTypeTransfer   TransactionType = "TRANSFER"
+	TransactionTypeDeposit    TransactionType = "DEPOSIT"
+	TransactionTypeWithdrawal TransactionType = "WITHDRAWAL"
+	TransactionTypePayment    TransactionType = "PAYMENT"
+	TransactionTypeCredit     TransactionType = "CREDIT"
 )
 
 type TransactionStatus string
 
 const (
-	TransactionStatusPending   TransactionStatus = "pending"   // Ожидает обработки
-	TransactionStatusCompleted TransactionStatus = "completed" // Выполнена
-	TransactionStatusFailed    TransactionStatus = "failed"    // Ошибка
-	TransactionStatusCancelled TransactionStatus = "cancelled" // Отменена
+	TransactionStatusPending   TransactionStatus = "PENDING"
+	TransactionStatusCompleted TransactionStatus = "COMPLETED"
+	TransactionStatusFailed    TransactionStatus = "FAILED"
+	TransactionStatusCancelled TransactionStatus = "CANCELLED"
 )
 
 type Transaction struct {
-	ID            int               `json:"id" gorm:"primaryKey"`
+	gorm.Model
 	Type          TransactionType   `json:"type" gorm:"type:varchar(20);not null"`
-	FromAccountID int               `json:"from_account_id,omitempty" gorm:"index:idx_transaction_from_account"`
-	ToAccountID   int               `json:"to_account_id" gorm:"index:idx_transaction_to_account;not null"`
-	Amount        float64           `json:"amount" gorm:"not null;check:amount > 0"`
-	Description   string            `json:"description"`
-	Status        TransactionStatus `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
-	CreatedAt     time.Time         `json:"created_at" gorm:"not null"`
-	UpdatedAt     time.Time         `json:"updated_at" gorm:"not null"`
-
-	FromAccount Account `gorm:"foreignKey:FromAccountID" json:"from_account,omitempty"`
-	ToAccount   Account `gorm:"foreignKey:ToAccountID" json:"to_account"`
+	Status        TransactionStatus `json:"status" gorm:"type:varchar(20);not null;default:'PENDING'"`
+	Amount        float64           `json:"amount" gorm:"type:decimal(20,2);not null"`
+	Currency      string            `json:"currency" gorm:"type:varchar(3);not null;default:'RUB'"`
+	FromAccountID uint              `json:"from_account_id"`
+	FromAccount   Account           `json:"from_account" gorm:"foreignKey:FromAccountID"`
+	ToAccountID   uint              `json:"to_account_id"`
+	ToAccount     Account           `json:"to_account" gorm:"foreignKey:ToAccountID"`
+	Description   string            `json:"description" gorm:"type:text"`
+	Metadata      string            `json:"metadata" gorm:"type:jsonb"`
+	ExpiresAt     time.Time         `json:"expires_at"`
+	CompletedAt   *time.Time        `json:"completed_at"`
+	FailedAt      *time.Time        `json:"failed_at"`
+	Error         string            `json:"error" gorm:"type:text"`
 }
 
-// ValidateAmount проверяет, что сумма транзакции положительная
-func (t *Transaction) ValidateAmount() bool {
-	return t.Amount > 0
+// Validate проверяет все поля транзакции
+func (t *Transaction) Validate() error {
+	if err := t.ValidateType(); err != nil {
+		return err
+	}
+	if err := t.ValidateStatus(); err != nil {
+		return err
+	}
+	if err := t.ValidateAmount(); err != nil {
+		return err
+	}
+	if err := t.ValidateCurrency(); err != nil {
+		return err
+	}
+	if err := t.ValidateAccounts(); err != nil {
+		return err
+	}
+	return nil
 }
 
-// ValidateStatus проверяет корректность статуса
-func (t *Transaction) ValidateStatus() bool {
-	switch t.Status {
-	case TransactionStatusPending,
-		TransactionStatusCompleted,
-		TransactionStatusFailed,
-		TransactionStatusCancelled:
-		return true
+// ValidateType проверяет корректность типа транзакции
+func (t *Transaction) ValidateType() error {
+	switch t.Type {
+	case TransactionTypeTransfer, TransactionTypeDeposit, TransactionTypeWithdrawal,
+		TransactionTypePayment, TransactionTypeCredit:
+		return nil
 	default:
-		return false
+		return ErrInvalidType
+	}
+}
+
+// ValidateStatus проверяет корректность статуса транзакции
+func (t *Transaction) ValidateStatus() error {
+	switch t.Status {
+	case TransactionStatusPending, TransactionStatusCompleted,
+		TransactionStatusFailed, TransactionStatusCancelled:
+		return nil
+	default:
+		return ErrInvalidStatus
+	}
+}
+
+// ValidateAmount проверяет корректность суммы
+func (t *Transaction) ValidateAmount() error {
+	if t.Amount <= 0 {
+		return ErrInvalidAmount
+	}
+	return nil
+}
+
+// ValidateCurrency проверяет корректность валюты
+func (t *Transaction) ValidateCurrency() error {
+	if t.Currency != "RUB" {
+		return errors.New("only RUB currency is supported")
+	}
+	return nil
+}
+
+// ValidateAccounts проверяет корректность счетов
+func (t *Transaction) ValidateAccounts() error {
+	switch t.Type {
+	case TransactionTypeTransfer:
+		if t.FromAccountID == 0 || t.ToAccountID == 0 {
+			return errors.New("both accounts are required for transfer")
+		}
+		if t.FromAccountID == t.ToAccountID {
+			return errors.New("cannot transfer to the same account")
+		}
+	case TransactionTypeDeposit:
+		if t.ToAccountID == 0 {
+			return errors.New("destination account is required for deposit")
+		}
+	case TransactionTypeWithdrawal:
+		if t.FromAccountID == 0 {
+			return errors.New("source account is required for withdrawal")
+		}
+	}
+	return nil
+}
+
+// IsExpired проверяет, истек ли срок действия транзакции
+func (t *Transaction) IsExpired() bool {
+	return !t.ExpiresAt.IsZero() && t.ExpiresAt.Before(time.Now())
+}
+
+// Complete помечает транзакцию как завершенную
+func (t *Transaction) Complete() {
+	now := time.Now()
+	t.Status = TransactionStatusCompleted
+	t.CompletedAt = &now
+}
+
+// Fail помечает транзакцию как неудачную
+func (t *Transaction) Fail(err error) {
+	now := time.Now()
+	t.Status = TransactionStatusFailed
+	t.FailedAt = &now
+	t.Error = err.Error()
+}
+
+// Cancel помечает транзакцию как отмененную
+func (t *Transaction) Cancel() {
+	t.Status = TransactionStatusCancelled
+}
+
+// BeforeCreate хук для валидации перед созданием
+func (t *Transaction) BeforeCreate(tx *gorm.DB) error {
+	return t.Validate()
+}
+
+// BeforeUpdate хук для валидации перед обновлением
+func (t *Transaction) BeforeUpdate(tx *gorm.DB) error {
+	return t.Validate()
+}
+
+// ToDTO преобразует модель в DTO
+func (t *Transaction) ToDTO() map[string]interface{} {
+	return map[string]interface{}{
+		"id":              t.ID,
+		"type":            t.Type,
+		"status":          t.Status,
+		"amount":          t.Amount,
+		"currency":        t.Currency,
+		"from_account_id": t.FromAccountID,
+		"to_account_id":   t.ToAccountID,
+		"description":     t.Description,
+		"metadata":        t.Metadata,
+		"expires_at":      t.ExpiresAt,
+		"completed_at":    t.CompletedAt,
+		"failed_at":       t.FailedAt,
+		"error":           t.Error,
+		"created_at":      t.CreatedAt,
+		"updated_at":      t.UpdatedAt,
 	}
 }

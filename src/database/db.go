@@ -134,11 +134,11 @@ func ConnectDB() (*gorm.DB, error) {
 func CreateTables(db *gorm.DB) error {
 	// Создаем таблицы
 	err := db.AutoMigrate(
+		&model.Role{},
 		&model.User{},
+		&model.UserRole{},
 		&model.Account{},
 		&model.Card{},
-		&model.Role{},
-		&model.UserRole{},
 		&model.Transaction{},
 		&model.Credit{},
 		&model.PaymentSchedule{},
@@ -147,16 +147,30 @@ func CreateTables(db *gorm.DB) error {
 	)
 
 	if err != nil {
-		log.Fatalf("Ошибка при создании таблиц: %v", err)
-		return err
+		return fmt.Errorf("ошибка при создании таблиц: %v", err)
 	}
 
-	createAdmin(db)
+	// Инициализируем роли после создания таблиц
+	if err := InitializeRoles(db); err != nil {
+		return fmt.Errorf("ошибка при инициализации ролей: %v", err)
+	}
 
-	return InitializeRoles(db)
+	// Создаем админа после создания всех таблиц и инициализации ролей
+	if err := createAdmin(db); err != nil {
+		return fmt.Errorf("ошибка при создании админа: %v", err)
+	}
+
+	return nil
 }
 
 func createAdmin(db *gorm.DB) error {
+	// Проверяем, существует ли уже админ
+	var existingAdmin model.User
+	if err := db.Where("email = ?", "admin@example.com").First(&existingAdmin).Error; err == nil {
+		// Админ уже существует, ничего не делаем
+		return nil
+	}
+
 	admin := &model.User{
 		Username: "admin",
 		Password: "admin",
@@ -164,32 +178,26 @@ func createAdmin(db *gorm.DB) error {
 	}
 
 	// Создаем роли, если их нет
-	adminRole := model.Role{Name: "admin", Description: "Администратор системы"}
-	userRole := model.Role{Name: "user", Description: "Обычный пользователь"}
+	adminRole := model.Role{Name: model.RoleAdmin, Description: "Администратор системы"}
+	userRole := model.Role{Name: model.RoleUser, Description: "Обычный пользователь"}
 
-	if err := db.FirstOrCreate(&adminRole, model.Role{Name: "admin"}).Error; err != nil {
-		log.Fatalf("Failed to create admin role: %v", err)
+	if err := db.FirstOrCreate(&adminRole, model.Role{Name: model.RoleAdmin}).Error; err != nil {
+		return fmt.Errorf("ошибка при создании роли админа: %v", err)
 	}
 
-	if err := db.FirstOrCreate(&userRole, model.Role{Name: "user"}).Error; err != nil {
-		log.Fatalf("Failed to create user role: %v", err)
+	if err := db.FirstOrCreate(&userRole, model.Role{Name: model.RoleUser}).Error; err != nil {
+		return fmt.Errorf("ошибка при создании роли пользователя: %v", err)
 	}
 
-	return db.Create(admin).Error
+	if err := db.Create(admin).Error; err != nil {
+		return fmt.Errorf("ошибка при создании админа: %v", err)
+	}
+
+	return nil
 }
 
-// InitializeRoles создает базовые роли в системе, если они еще не существуют
+// InitializeRoles создает базовые роли в системе
 func InitializeRoles(db *gorm.DB) error {
-	// Проверяем, существуют ли уже роли
-	var count int64
-	db.Model(&model.Role{}).Count(&count)
-
-	// Если роли уже существуют, ничего не делаем
-	if count > 0 {
-		log.Println("Роли уже существуют в базе данных")
-		return nil
-	}
-
 	// Создаем базовые роли
 	roles := []model.Role{
 		{Name: model.RoleAdmin, Description: "Администратор"},
@@ -197,12 +205,30 @@ func InitializeRoles(db *gorm.DB) error {
 	}
 
 	// Сохраняем роли в базе данных
-	result := db.Create(&roles)
-	if result.Error != nil {
-		log.Printf("Ошибка при создании ролей: %v", result.Error)
-		return result.Error
+	for _, role := range roles {
+		if err := db.FirstOrCreate(&role, model.Role{Name: role.Name}).Error; err != nil {
+			return fmt.Errorf("ошибка при создании роли %s: %v", role.Name, err)
+		}
 	}
 
-	log.Printf("Создано %d ролей", result.RowsAffected)
+	return nil
+}
+
+func addNumberField(db *gorm.DB) error {
+	// Обновляем существующие записи
+	var accounts []model.Account
+	if err := db.Find(&accounts).Error; err != nil {
+		return fmt.Errorf("ошибка при получении счетов: %v", err)
+	}
+
+	for _, account := range accounts {
+		if account.Number == "" {
+			account.Number = model.GenerateAccountNumber()
+			if err := db.Save(&account).Error; err != nil {
+				return fmt.Errorf("ошибка при обновлении счета %d: %v", account.ID, err)
+			}
+		}
+	}
+
 	return nil
 }

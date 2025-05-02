@@ -6,7 +6,7 @@ import (
 
 	// "FinanceGolang/src/repository"
 	// "FinanceGolang/src/database"
-	// "fmt"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -86,16 +86,21 @@ func (cc *CardController) GetAllCards(c *gin.Context) {
 		return
 	}
 
-	if len(cards) == 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
-			"cards":  []model.Card{},
-		})
-		return
+	// Преобразуем карты в DTO
+	var cardDTOs []map[string]interface{}
+	for _, card := range cards {
+		dto := card.ToDTO()
+		// Логируем каждую карту для отладки
+		fmt.Printf("Card DTO: %+v\n", dto)
+		cardDTOs = append(cardDTOs, dto)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"status": "success",
-		"cards":  cards,
-	})
+		"cards":  cardDTOs,
+	}
+	// Логируем финальный ответ
+	fmt.Printf("Response: %+v\n", response)
+
+	c.JSON(http.StatusOK, response)
 }

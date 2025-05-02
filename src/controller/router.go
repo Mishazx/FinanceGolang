@@ -5,6 +5,7 @@ import (
 	"FinanceGolang/src/repository"
 	"FinanceGolang/src/security"
 	"FinanceGolang/src/service"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -73,7 +74,22 @@ func (r *Router) createAccountService() service.AccountService {
 func (r *Router) createCardService() service.CardService {
 	cardRepo := repository.CardRepositoryInstance(database.DB)
 	accountRepo := repository.AccountRepositoryInstance(database.DB)
-	return service.CardServiceInstance(cardRepo, accountRepo, "defaultString", []byte("defaultBytes"))
+
+	// Читаем публичный ключ из файла
+	publicKeyBytes, err := ioutil.ReadFile("public_key.asc")
+	if err != nil {
+		logrus.WithError(err).Error("Ошибка чтения публичного ключа")
+		publicKeyBytes = []byte("card_public_key_" + time.Now().Format("20060102150405"))
+	}
+
+	// Читаем HMAC секрет из файла
+	hmacSecretBytes, err := ioutil.ReadFile("private_key.asc")
+	if err != nil {
+		logrus.WithError(err).Error("Ошибка чтения приватного ключа")
+		hmacSecretBytes = []byte("card_hmac_secret_" + time.Now().Format("20060102150405"))
+	}
+
+	return service.CardServiceInstance(cardRepo, accountRepo, string(publicKeyBytes), hmacSecretBytes)
 }
 
 // createCreditService создает сервис кредитов

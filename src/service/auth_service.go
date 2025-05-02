@@ -7,11 +7,11 @@ import (
 	"FinanceGolang/src/repository"
 	"FinanceGolang/src/security"
 
+	"context"
 	"fmt"
 	"log"
 
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type AuthService interface {
@@ -37,18 +37,30 @@ func AuthServiceInstance(userRepo repository.UserRepository) AuthService {
 
 func (s *authService) Register(user *model.User) error {
 	// Проверяем, существует ли пользователь с таким именем
-	_, err := s.userRepo.FindUserByUsername(user.Username)
+	existingUser, err := s.userRepo.GetByUsername(context.Background(), user.Username)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// Пользователь не найден, это хорошо - продолжаем регистрацию
-		} else {
-			// Другая ошибка при поиске пользователя
-			return err
-		}
-	} else {
-		// Если пользователь найден, возвращаем ошибку
+		return fmt.Errorf("error checking username: %v", err)
+	}
+	if existingUser != nil {
 		return fmt.Errorf("user with username %s already exists", user.Username)
 	}
+
+	// Проверяем валидацию
+	if err := user.Validate(); err != nil {
+		switch err {
+		case model.ErrInvalidEmail:
+			return fmt.Errorf("invalid email format")
+		case model.ErrInvalidUsername:
+			return fmt.Errorf("username must be 3-50 characters long and contain only letters, numbers and underscores")
+		case model.ErrInvalidPassword:
+			return fmt.Errorf("password must be at least 8 characters long")
+		case model.ErrInvalidFIO:
+			return fmt.Errorf("FIO must be 3-100 characters long and contain only letters, spaces and hyphens")
+		default:
+			return fmt.Errorf("validation error: %v", err)
+		}
+	}
+
 	// Хэшируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -57,12 +69,18 @@ func (s *authService) Register(user *model.User) error {
 	user.Password = string(hashedPassword)
 
 	// Сохраняем пользователя в базе данных
-	if err := s.userRepo.CreateUser(user); err != nil {
+	if err := s.userRepo.Create(context.Background(), user); err != nil {
 		return err
 	}
 
 	// Назначаем роль user новому пользователю
-	if err := s.roleRepo.AssignRoleToUser(user.ID, model.RoleUser); err != nil {
+	role, err := s.roleRepo.GetByName(context.Background(), model.RoleUser)
+	if err != nil {
+		return fmt.Errorf("failed to get default role: %v", err)
+	}
+
+	// Создаем связь пользователя с ролью
+	if err := s.userRepo.AddRole(context.Background(), user.ID, role.ID); err != nil {
 		return fmt.Errorf("failed to assign default role: %v", err)
 	}
 
@@ -71,7 +89,7 @@ func (s *authService) Register(user *model.User) error {
 
 func (s *authService) Login(user *model.User) (string, error) {
 	// Ищем пользователя по username
-	foundUser, err := s.userRepo.FindUserByUsername(user.Username)
+	foundUser, err := s.userRepo.GetByUsername(context.Background(), user.Username)
 	if err != nil {
 		return "", err
 	}
@@ -84,7 +102,7 @@ func (s *authService) Login(user *model.User) (string, error) {
 }
 
 func (s *authService) GetUserByUsername(username string) (*model.User, error) {
-	user, err := s.userRepo.FindUserByUsername(username)
+	user, err := s.userRepo.GetByUsername(context.Background(), username)
 	if err != nil {
 		return nil, err
 	}
@@ -93,12 +111,16 @@ func (s *authService) GetUserByUsername(username string) (*model.User, error) {
 }
 
 func (s *authService) GetUserByUsernameWithoutPassword(username string) (*dto.UserResponse, error) {
-	userResponse, err := s.userRepo.FindUserByUsernameWithoutPassword(username)
+	user, err := s.userRepo.GetByUsername(context.Background(), username)
 	if err != nil {
 		return nil, err
 	}
 
-	return userResponse, nil
+	return &dto.UserResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+	}, nil
 }
 
 func (s *authService) AuthStatus(token string) (bool, error) {
@@ -110,7 +132,7 @@ func (s *authService) AuthStatus(token string) (bool, error) {
 	}
 
 	// Проверяем существование пользователя
-	user, err := s.userRepo.FindUserByUsername(claims.Username)
+	user, err := s.userRepo.GetByUsername(context.Background(), claims.Username)
 	if err != nil {
 		return false, fmt.Errorf("No valid auth token, user not found")
 	}
@@ -129,7 +151,7 @@ func (s *authService) ValidateUserFromToken(tokenString string) (*model.User, er
 		return nil, fmt.Errorf("invalid token: %v", err)
 	}
 
-	user, err := s.userRepo.FindUserByUsername(claims.Username)
+	user, err := s.userRepo.GetByUsername(context.Background(), claims.Username)
 	if err != nil {
 		log.Printf("No valid auth token, user not found: %v", err)
 		return nil, fmt.Errorf("No valid auth token, user not found")

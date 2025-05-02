@@ -3,6 +3,7 @@ package service
 import (
 	"FinanceGolang/src/model"
 	"FinanceGolang/src/repository"
+	"context"
 	"time"
 )
 
@@ -26,7 +27,7 @@ func NewAnalyticsService(
 
 // GetIncomeExpenseStats возвращает статистику доходов и расходов
 func (s *AnalyticsService) GetIncomeExpenseStats(accountID uint, startDate, endDate time.Time) (*model.IncomeExpenseStats, error) {
-	transactions, err := s.transactionRepo.GetTransactionsByAccountID(accountID, startDate, endDate)
+	transactions, err := s.transactionRepo.GetByAccountID(context.Background(), accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -38,12 +39,14 @@ func (s *AnalyticsService) GetIncomeExpenseStats(accountID uint, startDate, endD
 	}
 
 	for _, t := range transactions {
-		if t.Type == model.TransactionTypeDeposit {
-			stats.TotalIncome += t.Amount
-		} else {
-			stats.TotalExpense += t.Amount
+		if t.CreatedAt.After(startDate) && t.CreatedAt.Before(endDate) {
+			if t.Type == model.TransactionTypeDeposit {
+				stats.TotalIncome += t.Amount
+			} else {
+				stats.TotalExpense += t.Amount
+			}
+			stats.Categories[string(t.Type)] += t.Amount
 		}
-		stats.Categories[string(t.Type)] += t.Amount
 	}
 
 	return stats, nil
@@ -51,13 +54,13 @@ func (s *AnalyticsService) GetIncomeExpenseStats(accountID uint, startDate, endD
 
 // GetBalanceForecast возвращает прогноз баланса на указанный период
 func (s *AnalyticsService) GetBalanceForecast(accountID uint, months int) (*model.BalanceForecast, error) {
-	account, err := s.accountRepo.GetAccountByID(accountID)
+	account, err := s.accountRepo.GetByID(context.Background(), accountID)
 	if err != nil {
 		return nil, err
 	}
 
 	forecast := &model.BalanceForecast{
-		CurrentBalance: account.Balance,
+		CurrentBalance:  account.Balance,
 		MonthlyForecast: make([]model.MonthlyForecast, months),
 	}
 
@@ -73,32 +76,25 @@ func (s *AnalyticsService) GetBalanceForecast(accountID uint, months int) (*mode
 		}
 
 		// Получаем предстоящие платежи по кредитам
-		credits, err := s.creditRepo.GetCreditsByAccountID(accountID)
+		credit, err := s.creditRepo.GetByAccountID(context.Background(), accountID)
 		if err != nil {
 			return nil, err
 		}
 
 		var creditPayments float64
-		for _, credit := range credits {
-			if credit.Status == model.CreditStatusActive {
-				schedule, err := s.creditRepo.GetPaymentSchedule(credit.ID)
-				if err != nil {
-					return nil, err
-				}
-
-				for _, payment := range schedule {
-					if payment.DueDate.After(monthStart) && payment.DueDate.Before(monthEnd) {
-						creditPayments += payment.TotalAmount
-					}
-				}
+		if credit != nil && credit.Status == model.CreditStatusActive {
+			// Рассчитываем платеж на основе данных кредита
+			monthlyPayment := credit.Amount / float64(credit.Term)
+			if credit.NextPayment.After(monthStart) && credit.NextPayment.Before(monthEnd) {
+				creditPayments = monthlyPayment
 			}
 		}
 
 		forecast.MonthlyForecast[i] = model.MonthlyForecast{
-			Month:     monthStart.Format("January 2006"),
-			Income:    stats.TotalIncome,
-			Expense:   stats.TotalExpense + creditPayments,
-			Balance:   forecast.CurrentBalance + (stats.TotalIncome - stats.TotalExpense - creditPayments),
+			Month:   monthStart.Format("January 2006"),
+			Income:  stats.TotalIncome,
+			Expense: stats.TotalExpense + creditPayments,
+			Balance: forecast.CurrentBalance + (stats.TotalIncome - stats.TotalExpense - creditPayments),
 		}
 
 		forecast.CurrentBalance = forecast.MonthlyForecast[i].Balance
@@ -109,17 +105,17 @@ func (s *AnalyticsService) GetBalanceForecast(accountID uint, months int) (*mode
 
 // GetSpendingCategories возвращает статистику по категориям расходов
 func (s *AnalyticsService) GetSpendingCategories(accountID uint, startDate, endDate time.Time) (map[string]float64, error) {
-	transactions, err := s.transactionRepo.GetTransactionsByAccountID(accountID, startDate, endDate)
+	transactions, err := s.transactionRepo.GetByDateRange(context.Background(), startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 
 	categories := make(map[string]float64)
 	for _, t := range transactions {
-		if t.Type == model.TransactionTypeWithdrawal || t.Type == model.TransactionTypeTransfer {
+		if t.FromAccountID == accountID && (t.Type == model.TransactionTypeWithdrawal || t.Type == model.TransactionTypeTransfer) {
 			categories[string(t.Type)] += t.Amount
 		}
 	}
 
 	return categories, nil
-} 
+}

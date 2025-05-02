@@ -1,105 +1,182 @@
 package repository
 
 import (
+	"context"
+	"time"
+
 	"FinanceGolang/src/model"
 
 	"gorm.io/gorm"
 )
 
+// AccountRepository интерфейс репозитория счетов
 type AccountRepository interface {
-	CreateAccount(account *model.Account, userID uint) error
-	GetAccountByID(id uint) (*model.Account, error)
-	GetAllAccounts() ([]model.Account, error)
-	UpdateAccount(account *model.Account) error
-	DeleteAccount(id uint) error
-	GetAccountByUserID(userID uint) ([]model.Account, error)
-	GetAccountByName(name string) (*model.Account, error)
-	GetAccountByType(accountType string) ([]model.Account, error)
-	GetAccountByBalanceRange(minBalance, maxBalance float64) ([]model.Account, error)
-	UpdateBalance(accountID uint, amount float64) error
-	GetUserByAccountID(accountID uint) (*model.User, error)
+	Repository[model.Account]
+	GetByNumber(ctx context.Context, number string) (*model.Account, error)
+	GetByUserID(ctx context.Context, userID uint) ([]model.Account, error)
+	GetWithTransactions(ctx context.Context, id uint) (*model.Account, error)
+	UpdateBalance(ctx context.Context, id uint, amount float64) error
+	GetByType(ctx context.Context, accountType model.AccountType) ([]model.Account, error)
+	GetOverdueCredits(ctx context.Context) ([]model.Account, error)
+	GetDailyTransactions(ctx context.Context, id uint, date time.Time) ([]model.Transaction, error)
+	GetMonthlyTransactions(ctx context.Context, id uint, year int, month time.Month) ([]model.Transaction, error)
 }
 
-type accountRepo struct {
-	BaseRepository
+// accountRepository реализация репозитория счетов
+type accountRepository struct {
+	*BaseRepository[model.Account]
 }
 
+// AccountRepositoryInstance создает новый репозиторий счетов
 func AccountRepositoryInstance(db *gorm.DB) AccountRepository {
-	return &accountRepo{
-		BaseRepository: InitializeRepository(db),
+	return &accountRepository{
+		BaseRepository: NewBaseRepository[model.Account](db),
 	}
 }
 
-func (r *accountRepo) CreateAccount(account *model.Account, userID uint) error {
-	// Устанавливаем ID пользователя для аккаунта
-	account.UserID = int(userID)
-	return r.db.Create(account).Error
+// Create создает новый счет
+func (r *accountRepository) Create(ctx context.Context, account *model.Account) error {
+	return r.WithTransaction(ctx, func(tx *gorm.DB) error {
+		if err := account.Validate(); err != nil {
+			return ErrInvalidData
+		}
+
+		if err := tx.Create(account).Error; err != nil {
+			return r.HandleError(err)
+		}
+		return nil
+	})
 }
 
-func (r *accountRepo) GetAccountByID(id uint) (*model.Account, error) {
+// GetByID получает счет по ID
+func (r *accountRepository) GetByID(ctx context.Context, id uint) (*model.Account, error) {
 	var account model.Account
-	if err := r.db.Where("id = ?", id).First(&account).Error; err != nil {
-		return nil, err
+	if err := r.db.First(&account, id).Error; err != nil {
+		return nil, r.HandleError(err)
 	}
 	return &account, nil
 }
-func (r *accountRepo) GetAllAccounts() ([]model.Account, error) {
-	var accounts []model.Account
-	if err := r.db.Find(&accounts).Error; err != nil {
-		return nil, err
+
+// GetByNumber получает счет по номеру
+func (r *accountRepository) GetByNumber(ctx context.Context, number string) (*model.Account, error) {
+	var account model.Account
+	if err := r.db.Where("number = ?", number).First(&account).Error; err != nil {
+		return nil, r.HandleError(err)
 	}
-	return accounts, nil
+	return &account, nil
 }
-func (r *accountRepo) UpdateAccount(account *model.Account) error {
-	return r.db.Save(account).Error
-}
-func (r *accountRepo) DeleteAccount(id uint) error {
-	return r.db.Delete(&model.Account{}, id).Error
-}
-func (r *accountRepo) GetAccountByUserID(userID uint) ([]model.Account, error) {
+
+// GetByUserID получает счета пользователя
+func (r *accountRepository) GetByUserID(ctx context.Context, userID uint) ([]model.Account, error) {
 	var accounts []model.Account
 	if err := r.db.Where("user_id = ?", userID).Find(&accounts).Error; err != nil {
-		return nil, err
+		return nil, r.HandleError(err)
 	}
 	return accounts, nil
 }
-func (r *accountRepo) GetAccountByName(name string) (*model.Account, error) {
+
+// GetWithTransactions получает счет с транзакциями
+func (r *accountRepository) GetWithTransactions(ctx context.Context, id uint) (*model.Account, error) {
 	var account model.Account
-	if err := r.db.Where("name = ?", name).First(&account).Error; err != nil {
-		return nil, err
+	if err := r.db.Preload("Transactions").First(&account, id).Error; err != nil {
+		return nil, r.HandleError(err)
 	}
 	return &account, nil
 }
-func (r *accountRepo) GetAccountByType(accountType string) ([]model.Account, error) {
+
+// Update обновляет счет
+func (r *accountRepository) Update(ctx context.Context, account *model.Account) error {
+	return r.WithTransaction(ctx, func(tx *gorm.DB) error {
+		if err := account.Validate(); err != nil {
+			return ErrInvalidData
+		}
+
+		if err := tx.Save(account).Error; err != nil {
+			return r.HandleError(err)
+		}
+		return nil
+	})
+}
+
+// UpdateBalance обновляет баланс счета
+func (r *accountRepository) UpdateBalance(ctx context.Context, id uint, amount float64) error {
+	return r.WithTransaction(ctx, func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Account{}).Where("id = ?", id).
+			Update("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+			return r.HandleError(err)
+		}
+		return nil
+	})
+}
+
+// Delete удаляет счет
+func (r *accountRepository) Delete(ctx context.Context, id uint) error {
+	return r.WithTransaction(ctx, func(tx *gorm.DB) error {
+		if err := tx.Delete(&model.Account{}, id).Error; err != nil {
+			return r.HandleError(err)
+		}
+		return nil
+	})
+}
+
+// List получает список счетов
+func (r *accountRepository) List(ctx context.Context, offset, limit int) ([]model.Account, error) {
+	var accounts []model.Account
+	if err := r.db.Offset(offset).Limit(limit).Find(&accounts).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return accounts, nil
+}
+
+// Count возвращает количество счетов
+func (r *accountRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := r.db.Model(&model.Account{}).Count(&count).Error; err != nil {
+		return 0, r.HandleError(err)
+	}
+	return count, nil
+}
+
+// GetByType получает счета по типу
+func (r *accountRepository) GetByType(ctx context.Context, accountType model.AccountType) ([]model.Account, error) {
 	var accounts []model.Account
 	if err := r.db.Where("type = ?", accountType).Find(&accounts).Error; err != nil {
-		return nil, err
+		return nil, r.HandleError(err)
 	}
 	return accounts, nil
 }
-func (r *accountRepo) GetAccountByBalanceRange(minBalance, maxBalance float64) ([]model.Account, error) {
+
+// GetOverdueCredits получает просроченные кредитные счета
+func (r *accountRepository) GetOverdueCredits(ctx context.Context) ([]model.Account, error) {
 	var accounts []model.Account
-	if err := r.db.Where("balance >= ? AND balance <= ?", minBalance, maxBalance).Find(&accounts).Error; err != nil {
-		return nil, err
+	if err := r.db.Where("type = ? AND balance < 0", model.AccountTypeCredit).Find(&accounts).Error; err != nil {
+		return nil, r.HandleError(err)
 	}
 	return accounts, nil
 }
 
-func (r *accountRepo) UpdateBalance(accountID uint, amount float64) error {
-	return r.db.Model(&model.Account{}).Where("id = ?", accountID).
-		Update("balance", gorm.Expr("balance + ?", amount)).Error
+// GetDailyTransactions получает транзакции за день
+func (r *accountRepository) GetDailyTransactions(ctx context.Context, id uint, date time.Time) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	if err := r.db.Where("(from_account_id = ? OR to_account_id = ?) AND created_at BETWEEN ? AND ?",
+		id, id, startOfDay, endOfDay).Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
+	}
+	return transactions, nil
 }
 
-func (r *accountRepo) GetUserByAccountID(accountID uint) (*model.User, error) {
-	var account model.Account
-	if err := r.db.First(&account, accountID).Error; err != nil {
-		return nil, err
-	}
+// GetMonthlyTransactions получает транзакции за месяц
+func (r *accountRepository) GetMonthlyTransactions(ctx context.Context, id uint, year int, month time.Month) ([]model.Transaction, error) {
+	var transactions []model.Transaction
+	startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
 
-	var user model.User
-	if err := r.db.First(&user, account.UserID).Error; err != nil {
-		return nil, err
+	if err := r.db.Where("(from_account_id = ? OR to_account_id = ?) AND created_at BETWEEN ? AND ?",
+		id, id, startOfMonth, endOfMonth).Find(&transactions).Error; err != nil {
+		return nil, r.HandleError(err)
 	}
-
-	return &user, nil
+	return transactions, nil
 }

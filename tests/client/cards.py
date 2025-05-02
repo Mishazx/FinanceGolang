@@ -24,11 +24,20 @@ class CardManager:
                 headers={"Authorization": f"Bearer {self.auth_manager.token}"}
             )
             
+            # Отладочная информация
+            self.console.print(f"[yellow]Статус ответа: {response.status_code}[/yellow]")
+            self.console.print(f"[yellow]Ответ сервера: {response.text}[/yellow]")
+            
             if response.status_code != 200:
                 self.console.print(f"[red]Ошибка при получении счетов: {response.json().get('message')}[/red]")
                 return
             
-            accounts = response.json().get('accounts', [])
+            data = response.json()
+            if not data or 'accounts' not in data:
+                self.console.print("[red]Нет доступных счетов[/red]")
+                return
+                
+            accounts = data.get('accounts', [])
             if not accounts:
                 self.console.print("[red]У вас нет доступных счетов[/red]")
                 return
@@ -36,14 +45,14 @@ class CardManager:
             # Показываем таблицу счетов
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("ID")
-            table.add_column("Название")
+            table.add_column("Номер")
             table.add_column("Баланс")
             
             for account in accounts:
                 table.add_row(
-                    str(account['id']),
-                    account['name'],
-                    str(account['balance'])
+                    str(account.get('ID', '')),
+                    account.get('number', ''),
+                    f"{account.get('balance', 0):.2f} ₽"
                 )
             
             self.console.print(table)
@@ -59,6 +68,10 @@ class CardManager:
                 }
             )
             
+            # Отладочная информация
+            self.console.print(f"[yellow]Статус ответа создания карты: {response.status_code}[/yellow]")
+            self.console.print(f"[yellow]Ответ сервера создания карты: {response.text}[/yellow]")
+            
             if response.status_code == 201:
                 self.console.print("[green]Карта создана успешно![/green]")
                 card_data = response.json().get('card', {})
@@ -69,7 +82,8 @@ class CardManager:
                 card_table.add_column("Значение")
                 
                 for key, value in card_data.items():
-                    card_table.add_row(key, str(value))
+                    # if key != 'id':  # Пропускаем ID
+                    card_table.add_row(str(key), str(value))
                 
                 self.console.print(card_table)
             else:
@@ -77,6 +91,8 @@ class CardManager:
             
         except Exception as e:
             self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+            import traceback
+            self.console.print(f"[red]Трассировка: {traceback.format_exc()}[/red]")
 
     def get_all_cards(self):
         if not self.auth_manager.token:
@@ -98,7 +114,7 @@ class CardManager:
                 return
             
             accounts = accounts_response.json().get('accounts', [])
-            accounts_dict = {acc['id']: {'name': acc['name'], 'balance': acc['balance']} for acc in accounts}
+            accounts_dict = {acc['ID']: {'name': acc['number'], 'balance': acc['balance']} for acc in accounts}
             
             # Затем получаем список карт
             cards_response = requests.get(
@@ -147,4 +163,6 @@ class CardManager:
                 self.console.print(f"[red]Ошибка: {cards_response.json().get('message')}[/red]")
             
         except Exception as e:
-            self.console.print(f"[red]Ошибка: {str(e)}[/red]") 
+            import traceback
+            self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+            self.console.print(f"[red]Трассировка: {traceback.format_exc()}[/red]")

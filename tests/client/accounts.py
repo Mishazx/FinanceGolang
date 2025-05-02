@@ -17,18 +17,40 @@ class AccountManager:
         self.console.print("\n[bold blue]Создание счета[/bold blue]")
         self.console.print("=" * 50)
         
-        name = Prompt.ask("Введите название счета")
-
-        response = requests.post(
-            f"{self.base_url}/api/accounts",
-            headers={"Authorization": f"Bearer {self.auth_manager.token}"},
-            json={"name": name}
-        )
-
-        if response.status_code == 201:
-            self.console.print("[green]Счет создан успешно![/green]")
-        else:
-            self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/accounts",
+                headers={
+                    "Authorization": f"Bearer {self.auth_manager.token}",
+                    "Content-Type": "application/json"
+                },
+                json={}
+            )
+            
+            # Отладочная информация
+            self.console.print(f"[yellow]Статус ответа: {response.status_code}[/yellow]")
+            self.console.print(f"[yellow]Ответ сервера: {response.text}[/yellow]")
+            
+            if response.status_code == 201:
+                self.console.print("[green]Счет создан успешно![/green]")
+                account_data = response.json().get('account', {})
+                
+                # Показываем данные счета
+                account_table = Table(show_header=True, header_style="bold green")
+                account_table.add_column("Поле")
+                account_table.add_column("Значение")
+                
+                for key, value in account_data.items():
+                    if key != 'id':  # Пропускаем ID
+                        account_table.add_row(str(key), str(value))
+                
+                self.console.print(account_table)
+            else:
+                self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
+        except Exception as e:
+            self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+            import traceback
+            self.console.print(f"[red]Трассировка: {traceback.format_exc()}[/red]")
 
     def get_accounts(self):
         if not self.auth_manager.token:
@@ -75,8 +97,8 @@ class AccountManager:
                 
                 for account in accounts:
                     table.add_row(
-                        str(account["id"]),
-                        account["name"],
+                        str(account["ID"]),
+                        account["number"],
                         f"{account['balance']:.2f} ₽"
                     )
                 

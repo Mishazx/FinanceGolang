@@ -77,19 +77,15 @@ func (c *CreditController) CreateCredit(ctx *gin.Context) {
 
 	// Преобразуем модель в структуру ответа
 	response := CreditResponse{
-		ID:             credit.ID,
-		UserID:         credit.UserID,
-		AccountID:      credit.AccountID,
-		Amount:         credit.Amount,
-		InterestRate:   credit.InterestRate,
-		TermMonths:     credit.TermMonths,
-		MonthlyPayment: credit.MonthlyPayment,
-		Status:         string(credit.Status),
-		StartDate:      credit.StartDate,
-		EndDate:        credit.EndDate,
-		Description:    credit.Description,
-		CreatedAt:      credit.CreatedAt,
-		UpdatedAt:      credit.UpdatedAt,
+		ID:           credit.ID,
+		AccountID:    credit.AccountID,
+		Amount:       credit.Amount,
+		InterestRate: credit.InterestRate,
+		Status:       string(credit.Status),
+		StartDate:    credit.StartDate,
+		EndDate:      credit.EndDate,
+		CreatedAt:    credit.CreatedAt,
+		UpdatedAt:    credit.UpdatedAt,
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{
@@ -112,19 +108,15 @@ func (c *CreditController) GetCreditByID(ctx *gin.Context) {
 	}
 
 	response := CreditResponse{
-		ID:             credit.ID,
-		UserID:         credit.UserID,
-		AccountID:      credit.AccountID,
-		Amount:         credit.Amount,
-		InterestRate:   credit.InterestRate,
-		TermMonths:     credit.TermMonths,
-		MonthlyPayment: credit.MonthlyPayment,
-		Status:         string(credit.Status),
-		StartDate:      credit.StartDate,
-		EndDate:        credit.EndDate,
-		Description:    credit.Description,
-		CreatedAt:      credit.CreatedAt,
-		UpdatedAt:      credit.UpdatedAt,
+		ID:           credit.ID,
+		AccountID:    credit.AccountID,
+		Amount:       credit.Amount,
+		InterestRate: credit.InterestRate,
+		Status:       string(credit.Status),
+		StartDate:    credit.StartDate,
+		EndDate:      credit.EndDate,
+		CreatedAt:    credit.CreatedAt,
+		UpdatedAt:    credit.UpdatedAt,
 	}
 
 	ctx.JSON(http.StatusOK, response)
@@ -146,19 +138,15 @@ func (c *CreditController) GetUserCredits(ctx *gin.Context) {
 	responses := make([]CreditResponse, len(credits))
 	for i, credit := range credits {
 		responses[i] = CreditResponse{
-			ID:             credit.ID,
-			UserID:         credit.UserID,
-			AccountID:      credit.AccountID,
-			Amount:         credit.Amount,
-			InterestRate:   credit.InterestRate,
-			TermMonths:     credit.TermMonths,
-			MonthlyPayment: credit.MonthlyPayment,
-			Status:         string(credit.Status),
-			StartDate:      credit.StartDate,
-			EndDate:        credit.EndDate,
-			Description:    credit.Description,
-			CreatedAt:      credit.CreatedAt,
-			UpdatedAt:      credit.UpdatedAt,
+			ID:           credit.ID,
+			AccountID:    credit.AccountID,
+			Amount:       credit.Amount,
+			InterestRate: credit.InterestRate,
+			Status:       string(credit.Status),
+			StartDate:    credit.StartDate,
+			EndDate:      credit.EndDate,
+			CreatedAt:    credit.CreatedAt,
+			UpdatedAt:    credit.UpdatedAt,
 		}
 	}
 
