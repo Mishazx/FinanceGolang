@@ -102,7 +102,6 @@ func (s *Scheduler) processCreditPayment(credit *model.Credit) {
 					Amount:        monthlyPayment,
 					Description:   fmt.Sprintf("Платеж по кредиту #%d", credit.ID),
 					Status:        model.TransactionStatusCompleted,
-					Currency:      "RUB",
 				}
 				if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 					fmt.Printf("Ошибка при создании транзакции: %v\n", err)
@@ -141,7 +140,6 @@ func (s *Scheduler) processCreditPayment(credit *model.Credit) {
 					Amount:        penalty,
 					Description:   fmt.Sprintf("Штраф за просрочку платежа по кредиту #%d", credit.ID),
 					Status:        model.TransactionStatusCompleted,
-					Currency:      "RUB",
 				}
 				if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 					fmt.Printf("Ошибка при создании транзакции: %v\n", err)

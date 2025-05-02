@@ -30,6 +30,11 @@ class TransactionManager:
                 self.console.print("[yellow]Нет транзакций по выбранному счету[/yellow]")
                 return
 
+            # Отладочный вывод
+            self.console.print("\n[bold yellow]Отладочная информация:[/bold yellow]")
+            for t in transactions:
+                self.console.print(f"Транзакция: {t}")
+
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("Дата")
             table.add_column("Тип")
@@ -38,23 +43,42 @@ class TransactionManager:
             table.add_column("Статус")
             
             for transaction in transactions:
-                # Форматируем сумму с учетом типа транзакции
+                # Получаем сумму как число
                 amount = float(transaction["amount"])
-                formatted_amount = f"{abs(amount):.2f} ₽"
-                if transaction["type"] == "withdrawal" or (transaction["type"] == "transfer" and transaction["from_account_id"] == int(account_id)):
-                    formatted_amount = f"-{formatted_amount}"
+                
+                # Определяем знак суммы в зависимости от типа транзакции и роли счета
+                if transaction["type"] == "TRANSFER":
+                    # Для переводов проверяем, является ли счет отправителем или получателем
+                    from_id = transaction.get("from_account_id")
+                    to_id = transaction.get("to_account_id")
+                    self.console.print(f"\n[bold yellow]Отладка перевода:[/bold yellow]")
+                    self.console.print(f"from_id: {from_id}, to_id: {to_id}, account_id: {account_id}")
+                    
+                    if from_id and int(from_id) == int(account_id):
+                        # Если счет отправитель - сумма отрицательная
+                        formatted_amount = f"-{abs(amount):.2f} ₽"
+                    elif to_id and int(to_id) == int(account_id):
+                        # Если счет получатель - сумма положительная
+                        formatted_amount = f"+{abs(amount):.2f} ₽"
+                    else:
+                        # Если счет не участвует в переводе (не должно происходить)
+                        formatted_amount = f"{abs(amount):.2f} ₽"
+                elif transaction["type"] == "WITHDRAWAL":
+                    # Для снятий сумма всегда отрицательная
+                    formatted_amount = f"-{abs(amount):.2f} ₽"
                 else:
-                    formatted_amount = f"+{formatted_amount}"
+                    # Для пополнений сумма всегда положительная
+                    formatted_amount = f"+{abs(amount):.2f} ₽"
 
                 # Преобразуем тип транзакции для отображения
                 transaction_type = transaction["type"]
-                if transaction_type == "deposit":
+                if transaction_type == "DEPOSIT":
                     display_type = "Пополнение"
-                elif transaction_type == "withdrawal":
+                elif transaction_type == "WITHDRAWAL":
                     display_type = "Снятие"
-                elif transaction_type == "transfer":
+                elif transaction_type == "TRANSFER":
                     display_type = "Перевод"
-                elif transaction_type == "credit":
+                elif transaction_type == "CREDIT":
                     display_type = "Оформление кредита"
                 else:
                     display_type = transaction_type

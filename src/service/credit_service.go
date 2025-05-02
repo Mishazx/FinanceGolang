@@ -92,7 +92,6 @@ func (s *creditService) CreateCredit(userID uint, accountID uint, amount float64
 		Amount:      amount,
 		Description: fmt.Sprintf("Зачисление по кредиту #%d: %s", credit.ID, description),
 		Status:      model.TransactionStatusCompleted,
-		Currency:    "RUB",
 	}
 	if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %v", err)
@@ -199,7 +198,6 @@ func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
 		Amount:        payment.TotalAmount,
 		Description:   fmt.Sprintf("Платеж по кредиту #%d, платеж #%d", credit.ID, paymentNumber),
 		Status:        model.TransactionStatusCompleted,
-		Currency:      "RUB",
 	}
 	if err := s.transactionRepo.Create(context.Background(), transaction); err != nil {
 		return fmt.Errorf("failed to create transaction: %v", err)

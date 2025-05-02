@@ -119,23 +119,58 @@ class AccountManager:
         self.console.print("\n[bold blue]Пополнение счета[/bold blue]")
         self.console.print("=" * 50)
         
-        account_id = Prompt.ask("Введите ID счета")
-        amount = float(Prompt.ask("Введите сумму"))
-        description = Prompt.ask("Введите описание")
+        try:
+            account_id = Prompt.ask("Введите ID счета")
+            amount = float(Prompt.ask("Введите сумму"))
+            description = Prompt.ask("Введите описание")
 
-        response = requests.post(
-            f"{self.base_url}/api/accounts/{account_id}/deposit",
-            headers={"Authorization": f"Bearer {self.auth_manager.token}"},
-            json={
-                "amount": amount,
-                "description": description
-            }
-        )
+            # Отладочная информация
+            self.console.print(f"[yellow]Отправляем запрос на пополнение счета {account_id}[/yellow]")
+            self.console.print(f"[yellow]Сумма: {amount}, Описание: {description}[/yellow]")
 
-        if response.status_code == 200:
-            self.console.print("[green]Счет успешно пополнен![/green]")
-        else:
-            self.console.print(f"[red]Ошибка: {response.json().get('message')}[/red]")
+            response = requests.post(
+                f"{self.base_url}/api/accounts/{account_id}/deposit",
+                headers={"Authorization": f"Bearer {self.auth_manager.token}"},
+                json={
+                    "amount": amount,
+                    "description": description
+                }
+            )
+
+            # Отладочная информация
+            self.console.print(f"[yellow]Статус ответа: {response.status_code}[/yellow]")
+            self.console.print(f"[yellow]Ответ сервера: {response.text}[/yellow]")
+
+            if response.status_code == 200:
+                self.console.print("[green]Счет успешно пополнен![/green]")
+                # Показываем детали ответа
+                response_data = response.json()
+                if response_data:
+                    self.console.print(f"[green]Детали операции:[/green]")
+                    for key, value in response_data.items():
+                        self.console.print(f"[green]{key}: {value}[/green]")
+            else:
+                error_message = response.json().get('message', 'Неизвестная ошибка')
+                self.console.print(f"[red]Ошибка: {error_message}[/red]")
+                if response.status_code == 404:
+                    self.console.print("[red]Счет не найден[/red]")
+                elif response.status_code == 400:
+                    self.console.print("[red]Неверный формат данных[/red]")
+                elif response.status_code == 401:
+                    self.console.print("[red]Требуется авторизация[/red]")
+                elif response.status_code == 403:
+                    self.console.print("[red]Нет прав для выполнения операции[/red]")
+                else:
+                    self.console.print(f"[red]Неизвестная ошибка (код {response.status_code})[/red]")
+
+        except ValueError as e:
+            self.console.print(f"[red]Ошибка ввода: {str(e)}[/red]")
+        except requests.exceptions.RequestException as e:
+            self.console.print(f"[red]Ошибка сети: {str(e)}[/red]")
+        except Exception as e:
+            self.console.print(f"[red]Неожиданная ошибка: {str(e)}[/red]")
+            import traceback
+            self.console.print(f"[red]Трассировка: {traceback.format_exc()}[/red]")
 
     def withdraw(self):
         if not self.auth_manager.token:

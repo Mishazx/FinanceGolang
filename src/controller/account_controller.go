@@ -213,5 +213,11 @@ func (h *AccountController) GetTransactions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"transactions": transactions})
+	// Преобразуем транзакции в DTO
+	transactionDTOs := make([]map[string]interface{}, len(transactions))
+	for i, t := range transactions {
+		transactionDTOs[i] = t.ToDTO()
+	}
+
+	c.JSON(http.StatusOK, gin.H{"transactions": transactionDTOs})
 }

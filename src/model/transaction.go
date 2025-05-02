@@ -38,11 +38,8 @@ type Transaction struct {
 	Type          TransactionType   `json:"type" gorm:"type:varchar(20);not null"`
 	Status        TransactionStatus `json:"status" gorm:"type:varchar(20);not null;default:'PENDING'"`
 	Amount        float64           `json:"amount" gorm:"type:decimal(20,2);not null"`
-	Currency      string            `json:"currency" gorm:"type:varchar(3);not null;default:'RUB'"`
 	FromAccountID uint              `json:"from_account_id"`
-	FromAccount   Account           `json:"from_account" gorm:"foreignKey:FromAccountID"`
 	ToAccountID   uint              `json:"to_account_id"`
-	ToAccount     Account           `json:"to_account" gorm:"foreignKey:ToAccountID"`
 	Description   string            `json:"description" gorm:"type:text"`
 	Metadata      string            `json:"metadata" gorm:"type:jsonb"`
 	ExpiresAt     time.Time         `json:"expires_at"`
@@ -60,9 +57,6 @@ func (t *Transaction) Validate() error {
 		return err
 	}
 	if err := t.ValidateAmount(); err != nil {
-		return err
-	}
-	if err := t.ValidateCurrency(); err != nil {
 		return err
 	}
 	if err := t.ValidateAccounts(); err != nil {
@@ -97,14 +91,6 @@ func (t *Transaction) ValidateStatus() error {
 func (t *Transaction) ValidateAmount() error {
 	if t.Amount <= 0 {
 		return ErrInvalidAmount
-	}
-	return nil
-}
-
-// ValidateCurrency проверяет корректность валюты
-func (t *Transaction) ValidateCurrency() error {
-	if t.Currency != "RUB" {
-		return errors.New("only RUB currency is supported")
 	}
 	return nil
 }
@@ -171,18 +157,12 @@ func (t *Transaction) ToDTO() map[string]interface{} {
 	return map[string]interface{}{
 		"id":              t.ID,
 		"type":            t.Type,
-		"status":          t.Status,
 		"amount":          t.Amount,
-		"currency":        t.Currency,
 		"from_account_id": t.FromAccountID,
 		"to_account_id":   t.ToAccountID,
 		"description":     t.Description,
-		"metadata":        t.Metadata,
-		"expires_at":      t.ExpiresAt,
-		"completed_at":    t.CompletedAt,
-		"failed_at":       t.FailedAt,
-		"error":           t.Error,
-		"created_at":      t.CreatedAt,
-		"updated_at":      t.UpdatedAt,
+		"status":          t.Status,
+		"created_at":      t.CreatedAt.Format(time.RFC3339),
+		"updated_at":      t.UpdatedAt.Format(time.RFC3339),
 	}
 }
