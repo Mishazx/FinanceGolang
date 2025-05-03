@@ -62,6 +62,7 @@ func (s *creditService) CreateCredit(userID uint, accountID uint, amount float64
 
 	// Создаем кредит
 	credit := &model.Credit{
+		UserID:        userID,
 		AccountID:     accountID,
 		Amount:        amount,
 		Term:          termMonths,
@@ -145,6 +146,23 @@ func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
 		return fmt.Errorf("failed to get credit: %v", err)
 	}
 
+	// Проверяем, не был ли уже оплачен этот платеж
+	transactions, err := s.transactionRepo.GetByType(context.Background(), model.TransactionTypePayment)
+	if err != nil {
+		return fmt.Errorf("failed to get payment transactions: %v", err)
+	}
+
+	for _, t := range transactions {
+		if t.FromAccountID == credit.AccountID && t.Status == model.TransactionStatusCompleted {
+			// Проверяем номер платежа в описании
+			var paidPaymentNumber int
+			_, err := fmt.Sscanf(t.Description, "Платеж по кредиту #%d, платеж #%d", &creditID, &paidPaymentNumber)
+			if err == nil && paidPaymentNumber == paymentNumber {
+				return fmt.Errorf("payment #%d already processed", paymentNumber)
+			}
+		}
+	}
+
 	// Получаем график платежей
 	schedule, err := s.GetPaymentSchedule(creditID)
 	if err != nil {
@@ -161,11 +179,6 @@ func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
 	}
 	if payment == nil {
 		return errors.New("payment not found")
-	}
-
-	// Проверяем статус платежа
-	if payment.Status != model.PaymentStatusPending {
-		return errors.New("payment already processed")
 	}
 
 	// Проверяем баланс счета
@@ -208,23 +221,19 @@ func (s *creditService) ProcessPayment(creditID uint, paymentNumber int) error {
 	now := time.Now()
 	payment.PaidAt = &now
 
-	// Обновляем общую сумму выплат
-	if err := s.creditRepo.UpdateTotalPaid(context.Background(), credit.ID, payment.TotalAmount); err != nil {
-		return fmt.Errorf("failed to update total paid: %v", err)
-	}
+	// Обновляем кредит
+	credit.TotalPaid += payment.TotalAmount
+	credit.RemainingDebt = credit.CalculateRemainingDebt()
+	credit.LastPayment = now
+	credit.NextPayment = credit.CalculateNextPaymentDate()
 
 	// Если это последний платеж, закрываем кредит
 	if paymentNumber == credit.Term {
 		credit.Status = model.CreditStatusPaid
-		if err := s.creditRepo.Update(context.Background(), credit); err != nil {
-			return fmt.Errorf("failed to update credit status: %v", err)
-		}
-	} else {
-		// Обновляем дату следующего платежа
-		nextPayment := credit.StartDate.AddDate(0, paymentNumber+1, 0)
-		if err := s.creditRepo.UpdateNextPayment(context.Background(), credit.ID, nextPayment); err != nil {
-			return fmt.Errorf("failed to update next payment date: %v", err)
-		}
+	}
+
+	if err := s.creditRepo.Update(context.Background(), credit); err != nil {
+		return fmt.Errorf("failed to update credit: %v", err)
 	}
 
 	return nil

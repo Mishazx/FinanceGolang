@@ -38,7 +38,7 @@ const (
 type Credit struct {
 	gorm.Model
 	AccountID     uint         `json:"account_id" gorm:"not null"`
-	Account       Account      `json:"account" gorm:"foreignKey:AccountID"`
+	UserID        uint         `json:"user_id" gorm:"not null"`
 	Amount        float64      `json:"amount" gorm:"type:decimal(20,2);not null"`
 	Term          int          `json:"term" gorm:"not null"` // в месяцах
 	InterestRate  float64      `json:"interest_rate" gorm:"type:decimal(5,2);not null"`
@@ -164,7 +164,7 @@ func (c *Credit) MakePayment(amount float64) error {
 	c.LastPayment = time.Now()
 
 	// Обновляем дату следующего платежа
-	c.NextPayment = c.calculateNextPaymentDate()
+	c.NextPayment = c.CalculateNextPaymentDate()
 
 	// Обновляем статус
 	c.UpdateStatus()
@@ -172,8 +172,8 @@ func (c *Credit) MakePayment(amount float64) error {
 	return nil
 }
 
-// calculateNextPaymentDate рассчитывает дату следующего платежа
-func (c *Credit) calculateNextPaymentDate() time.Time {
+// CalculateNextPaymentDate рассчитывает дату следующего платежа
+func (c *Credit) CalculateNextPaymentDate() time.Time {
 	next := c.LastPayment.AddDate(0, 1, 0)
 	// Устанавливаем день платежа
 	if c.PaymentDay > 28 {
@@ -205,6 +205,7 @@ func (c *Credit) ToDTO() map[string]interface{} {
 	return map[string]interface{}{
 		"id":             c.ID,
 		"account_id":     c.AccountID,
+		"user_id":        c.UserID,
 		"amount":         c.Amount,
 		"term":           c.Term,
 		"interest_rate":  c.InterestRate,

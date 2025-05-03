@@ -1,14 +1,12 @@
 package database
 
 import (
+	"FinanceGolang/src/config"
 	"FinanceGolang/src/model"
-	"os"
-	"time"
-
 	"fmt"
 	"log"
+	"time"
 
-	// "github.com/glebarez/sqlite" // Заменили импорт на pure Go реализацию
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -21,7 +19,7 @@ type DBType string
 
 const (
 	SQLite   DBType = "sqlite"
-	Postgres DBType = "postgres"
+	Postgres DBType = "postgresql"
 )
 
 type Handler struct {
@@ -34,16 +32,19 @@ func NewHandler(db *gorm.DB) *Handler {
 
 // InitDB - инициализирует соединение с базой данных
 func InitDB() (*gorm.DB, error) {
-	// Определяем тип базы данных из переменной окружения
-	// По умолчанию используем SQLite
-	dbType := DBType(os.Getenv("DB_TYPE"))
-	if dbType == "" {
-		dbType = SQLite
+	// Инициализируем конфигурацию
+	if err := config.Init(); err != nil {
+		return nil, fmt.Errorf("ошибка инициализации конфигурации: %v", err)
+	}
+
+	cfg := config.Get()
+	if cfg == nil {
+		return nil, fmt.Errorf("конфигурация не инициализирована")
 	}
 
 	// Настройка логгера GORM
 	loggerInstance := logger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		log.New(log.Writer(), "\r\n", log.LstdFlags),
 		logger.Config{
 			SlowThreshold: time.Second,
 			LogLevel:      logger.Info,
@@ -54,57 +55,29 @@ func InitDB() (*gorm.DB, error) {
 	var err error
 	var dialector gorm.Dialector
 
-	switch dbType {
+	switch DBType(cfg.DBType) {
 	case SQLite:
-		dbPath := os.Getenv("DB_PATH")
-		if dbPath == "" {
-			dbPath = "bank.db"
-		}
-		dialector = sqlite.Open(dbPath)
+		dialector = sqlite.Open(cfg.DBPath)
 	case Postgres:
-		host := os.Getenv("DB_HOST")
-		if host == "" {
-			host = "localhost"
-		}
-		port := os.Getenv("DB_PORT")
-		if port == "" {
-			port = "5432"
-		}
-		user := os.Getenv("DB_USER")
-		if user == "" {
-			user = "postgres"
-		}
-		password := os.Getenv("DB_PASSWORD")
-		if password == "" {
-			password = "postgres"
-		}
-		dbname := os.Getenv("DB_NAME")
-		if dbname == "" {
-			dbname = "bank"
-		}
-		sslmode := os.Getenv("DB_SSLMODE")
-		if sslmode == "" {
-			sslmode = "disable"
-		}
 		dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-			host, port, user, password, dbname, sslmode)
+			cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode)
 		dialector = postgres.Open(dsn)
 	default:
-		log.Fatalf("Неподдерживаемый тип базы данных: %s", dbType)
+		return nil, fmt.Errorf("неподдерживаемый тип базы данных: %s", cfg.DBType)
 	}
 
-	DB, err = gorm.Open(dialector, &gorm.Config{Logger: loggerInstance}) // Укажите вашу базу данных
+	DB, err = gorm.Open(dialector, &gorm.Config{Logger: loggerInstance})
 	if err != nil {
-		log.Fatalf("Ошибка подключения к базе данных: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("ошибка подключения к базе данных: %v", err)
 	}
 
 	err = CreateTables(DB)
 	if err != nil {
-		log.Fatalf("Ошибка при создании таблиц: %v", err)
+		return nil, fmt.Errorf("ошибка при создании таблиц: %v", err)
 	}
 
-	log.Printf("Успешное подключение к базе данных типа: %s", dbType)
+	// log.Printf("Инициализация базы данных типа: %s", cfg.DBType)
+	log.Printf("Успешное подключение к базе данных типа: %s", cfg.DBType)
 
 	return DB, nil
 }
@@ -166,7 +139,7 @@ func CreateTables(db *gorm.DB) error {
 func createAdmin(db *gorm.DB) error {
 	// Проверяем, существует ли уже админ
 	var existingAdmin model.User
-	if err := db.Where("email = ?", "admin@example.com").First(&existingAdmin).Error; err == nil {
+	if err := db.Where("username = ?", "admin").First(&existingAdmin).Error; err == nil {
 		// Админ уже существует, ничего не делаем
 		return nil
 	}

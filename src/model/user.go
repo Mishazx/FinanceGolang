@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -16,6 +17,7 @@ var (
 	ErrInvalidFIO      = errors.New("invalid FIO format")
 	ErrEmailExists     = errors.New("email already exists")
 	ErrUsernameExists  = errors.New("username already exists")
+	ErrWrongPassword   = errors.New("wrong password")
 )
 
 type User struct {
@@ -81,7 +83,21 @@ func (u *User) ValidateFIO() error {
 	return nil
 }
 
-// BeforeCreate хук для проверки уникальности перед созданием
+// HashPassword хеширует пароль пользователя
+func (u *User) HashPassword() error {
+	if u.Password == "" {
+		return nil
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	u.Password = string(hashedPassword)
+	return nil
+}
+
+// BeforeCreate хук для проверки уникальности и хеширования пароля перед созданием
 func (u *User) BeforeCreate(tx *gorm.DB) error {
 	var count int64
 
@@ -97,10 +113,11 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 		return ErrUsernameExists
 	}
 
-	return nil
+	// Хеширование пароля
+	return u.HashPassword()
 }
 
-// BeforeUpdate хук для проверки уникальности перед обновлением
+// BeforeUpdate хук для проверки уникальности и хеширования пароля перед обновлением
 func (u *User) BeforeUpdate(tx *gorm.DB) error {
 	var count int64
 
@@ -116,6 +133,10 @@ func (u *User) BeforeUpdate(tx *gorm.DB) error {
 		return ErrUsernameExists
 	}
 
+	// Хеширование пароля только если он был изменен
+	if u.Password != "" {
+		return u.HashPassword()
+	}
 	return nil
 }
 
@@ -145,4 +166,13 @@ func (u *User) ToDTO() map[string]interface{} {
 		"created_at": u.CreatedAt,
 		"updated_at": u.UpdatedAt,
 	}
+}
+
+// CheckPassword проверяет соответствие пароля хешу
+func (u *User) CheckPassword(password string) error {
+	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	if err != nil {
+		return ErrWrongPassword
+	}
+	return nil
 }

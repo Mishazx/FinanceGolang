@@ -154,10 +154,19 @@ func (t *Transaction) BeforeUpdate(tx *gorm.DB) error {
 
 // ToDTO преобразует модель в DTO
 func (t *Transaction) ToDTO() map[string]interface{} {
+	amount := t.Amount
+
+	// Для платежей по кредиту, снятий и переводов с этого счета сумма должна быть отрицательной
+	if t.Type == TransactionTypePayment ||
+		t.Type == TransactionTypeWithdrawal ||
+		(t.Type == TransactionTypeTransfer && t.FromAccountID > 0) {
+		amount = -amount
+	}
+
 	return map[string]interface{}{
 		"id":              t.ID,
 		"type":            t.Type,
-		"amount":          t.Amount,
+		"amount":          amount,
 		"from_account_id": t.FromAccountID,
 		"to_account_id":   t.ToAccountID,
 		"description":     t.Description,

@@ -10,8 +10,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService interface {
@@ -61,13 +59,6 @@ func (s *authService) Register(user *model.User) error {
 		}
 	}
 
-	// Хэшируем пароль
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	user.Password = string(hashedPassword)
-
 	// Сохраняем пользователя в базе данных
 	if err := s.userRepo.Create(context.Background(), user); err != nil {
 		return err
@@ -93,10 +84,12 @@ func (s *authService) Login(user *model.User) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Сравниваем хэши паролей
-	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password)); err != nil {
+
+	// Проверяем пароль
+	if err := foundUser.CheckPassword(user.Password); err != nil {
 		return "", err
 	}
+
 	// Генерируем токен
 	return security.GenerateToken(foundUser.ID, foundUser.Username, foundUser.Email)
 }

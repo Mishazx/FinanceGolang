@@ -1,17 +1,22 @@
 package main
 
 import (
+	"FinanceGolang/src/config"
 	"FinanceGolang/src/controller"
 	"FinanceGolang/src/database"
-
-	// "FinanceGolang/src/model"
+	"fmt"
 	"log"
-	"os"
 )
 
 func main() {
+	// Загрузка конфигурации
+	if err := config.Init(); err != nil {
+		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
+	}
+	cfg := config.Get()
+
 	// Инициализация базы данных
-	db, err := database.InitDB() // Get both the DB and error
+	db, err := database.InitDB()
 	if err != nil {
 		log.Fatalf("Ошибка инициализации базы данных: %v", err)
 	}
@@ -33,11 +38,9 @@ func main() {
 	r := router.InitRoutes()
 
 	// Запуск сервера
-
-	// Запуск сервера
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	addr := fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)
+	log.Printf("Сервер запускается на %s", addr)
+	if err := r.Run(addr); err != nil {
+		log.Fatalf("Ошибка запуска сервера: %v", err)
 	}
-	r.Run(":" + port)
 }

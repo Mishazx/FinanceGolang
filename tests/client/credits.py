@@ -41,8 +41,8 @@ class CreditManager:
             
             for account in accounts:
                 table.add_row(
-                    str(account['id']),
-                    account['name'],
+                    str(account['ID']),
+                    account['number'],
                     str(account['balance'])
                 )
             
@@ -91,11 +91,14 @@ class CreditManager:
                     self.console.print(f"[red]Ответ сервера: {error_text}[/red]")
                     
             except Exception as e:
+                import traceback
                 self.console.print(f"[red]Ошибка: {str(e)}[/red]")
+                self.console.print(f"[red]Трассировка: {traceback.format_exc()}[/red]")
             
         except Exception as e:
+            import traceback
             self.console.print(f"[red]Ошибка: {str(e)}[/red]")
-
+            self.console.print(f"[red]Трассировка: {traceback.format_exc()}[/red]")
     def get_credits(self):
         if not self.auth_manager.token:
             self.console.print("[red]Ошибка: Необходима авторизация[/red]")

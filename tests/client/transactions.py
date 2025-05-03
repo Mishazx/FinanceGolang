@@ -66,6 +66,9 @@ class TransactionManager:
                 elif transaction["type"] == "WITHDRAWAL":
                     # Для снятий сумма всегда отрицательная
                     formatted_amount = f"-{abs(amount):.2f} ₽"
+                elif transaction["type"] == "PAYMENT":
+                    # Для оформления кредита сумма всегда положительная
+                    formatted_amount = f"-{abs(amount):.2f} ₽"
                 else:
                     # Для пополнений сумма всегда положительная
                     formatted_amount = f"+{abs(amount):.2f} ₽"

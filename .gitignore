@@ -1,6 +1,7 @@
 # Environment files
 .env
 .venv
+venv
 
 # Go build files
 *.exe
